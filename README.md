@@ -73,23 +73,38 @@
 
 所有指令都在專案根目錄下，透過 `uv run` 執行。
 
-**基本用法：**
-
-爬取 `zuck` 的頁面，預設滾動 3 次，並下載到 `downloads` 資料夾。
+**1. 爬取指定用戶的頁面：**
 ```bash
 uv run python main.py zuck
 ```
 
-**進階用法：**
-
-爬取 `threads` 的頁面，滾動 10 次，並下載到 `D:\MyVideos` 資料夾。
+**2. 搜尋關鍵字：**
 ```bash
-uv run python main.py threads --scroll 10 --output D:\MyVideos
+uv run python main.py --search "funny cats"
 ```
 
-### 命令列參數
+**3. 爬取你的「為你推薦」首頁：**
+```bash
+uv run python main.py
+```
 
-- `target`: (必需) 要處理的 Threads 使用者名稱 (例如 `zuck`)。
+**查看下載紀錄：**
+
+在命令列中以表格形式，列出所有已成功下載並記錄的影片。
+```bash
+uv run python view_db.py
+```
+
+### 命令列參數 (`main.py`)
+
+本工具支援三種模式，請擇一使用：
+
+1.  **`target`** (可選): 指定一個 Threads 使用者名稱 (例如 `zuck`)。
+2.  **`--search`** (可選): 給定一個關鍵字進行搜尋 (例如 `"funny cats"`)。
+3.  **(無參數)**: 如果 `target` 和 `--search` 均未提供，則會爬取預設的 Threads 首頁推薦內容。
+
+**其他參數：**
+
 - `--scroll`: (可選) 模擬頁面向下滾動的次數。滾動次數越多，能載入的貼文越多。預設為 `3`。
 - `--output`: (可選) 指定儲存影片的資料夾路徑。預設為 `downloads`。
 

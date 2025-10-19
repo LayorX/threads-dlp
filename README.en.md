@@ -73,23 +73,38 @@ This tool requires your Threads session cookie to log in. This method is secure 
 
 All commands are run from the project root directory via `uv run`.
 
-**Basic Usage:**
-
-Scrape the `@zuck` profile with the default 3 scrolls and download to the `downloads` folder.
+**1. Scrape a specific user's profile:**
 ```bash
 uv run python main.py zuck
 ```
 
-**Advanced Usage:**
-
-Scrape the `@threads` profile with 10 scrolls and download to the `D:\MyVideos` folder.
+**2. Search for a keyword:**
 ```bash
-uv run python main.py threads --scroll 10 --output D:\MyVideos
+uv run python main.py --search "funny cats"
 ```
 
-### Command-Line Arguments
+**3. Scrape your "For You" home feed:**
+```bash
+uv run python main.py
+```
 
-- `target`: (Required) The Threads username to process (e.g., `zuck`).
+**Viewing Download Records:**
+
+List all successfully downloaded and recorded videos in a table format in your terminal.
+```bash
+uv run python view_db.py
+```
+
+### Command-Line Arguments (`main.py`)
+
+This tool supports three modes. Please choose one:
+
+1.  **`target`** (Optional): Specify a Threads username (e.g., `zuck`).
+2.  **`--search`** (Optional): Provide a keyword to search for (e.g., `"funny cats"`).
+3.  **(No arguments)**: If both `target` and `--search` are omitted, the tool will scrape the default Threads home feed.
+
+**Other Arguments:**
+
 - `--scroll`: (Optional) The number of times to scroll down the page. More scrolls load more posts. Defaults to `3`.
 - `--output`: (Optional) The directory path to save the downloaded videos. Defaults to `downloads`.
 

@@ -59,3 +59,4 @@ coverage.xml
 .vscode/
 *.swp
 .env
+debug_json_output.json

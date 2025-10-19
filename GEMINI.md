@@ -36,11 +36,11 @@
 
 2.  **方案 B: `yt-dlp` 直接爬取**
     *   **嘗試:** `yt-dlp` 是最強大的通用下載工具，我們首先嘗試用它直接解析 Threads 頁面。
-    *   **結果:** 失敗。`yt-dlp` 返回 `Unsupported URL` 錯誤，證實其沒有針對 Threads 的內建解析器。
+    *   **結果:** 失敗。`yt-dlp` 返回 `Unsupported URL` 錯誤。
 
 3.  **方案 C: Selenium + HTML 解析**
     *   **嘗試:** 使用 `Selenium` 模擬瀏覽器打開頁面，並從 HTML 原始碼中尋找 `<video>` 標籤。
-    *   **結果:** 失敗。Threads 網站沒有使用簡單的 `<video>` 標籤，此路不通。
+    *   **結果:** 失敗。Threads 網站沒有使用簡單的 `<video>` 標籤。
 
 4.  **方案 D: Selenium + 網路請求分析 (`.mp4` 過濾)
     *   **嘗試:** 使用 `selenium-wire` 攔截網路請求，並過濾出 URL 結尾是 `.mp4` 的請求。
@@ -53,15 +53,19 @@
 
 6.  **依賴地獄 (Dependency Hell) 的挑戰**
     *   在實作 Cookie 方案時，我們遭遇了 `selenium-wire` 的一系列依賴問題。
-    *   **`blinker._saferef` 找不到:** 透過分析，發現是 `blinker` 套件版本太新。我們透過在 `pyproject.toml` 中強制鎖定 `blinker==1.7.0` 解決了此問題。
-    *   **`pkg_resources` 找不到:** 接著發現缺少 `setuptools` 這個基礎套件。我們透過 `uv add setuptools` 將其加入專案依賴，解決了問題。
+    *   **`blinker._saferef` 找不到:** 透過在 `pyproject.toml` 中強制鎖定 `blinker==1.7.0` 解決了此問題。
+    *   **`pkg_resources` 找不到:** 接著發現缺少 `setuptools` 套件。透過 `uv add setuptools` 將其加入專案依賴，解決了問題。
 
-7.  **Cookie 注入失敗**
-    *   **問題:** 注入 Cookie 時發生 `invalid cookie domain` 錯誤。
-    *   **解決:** 移除 `add_cookie` 時手動指定的 `domain` 參數，讓 Selenium 自動處理，問題解決。
+7.  **情報分析的曲折**
+    *   **目標確認:** 我們確認了所有貼文數據都來自 `graphql/query` 這個 API 端點，並以 `zstd` 格式壓縮。
+    *   **列印失敗:** 在嘗試印出 JSON 結構時，因 Windows 命令列的 `cp950` 編碼無法處理 emoji 等特殊字元而失敗。
+    *   **存檔成功:** 最終我們採用「儲存到檔案」的策略，成功將完整的 JSON 數據寫入 `debug_json_output.json`，獲得了用來開發解析器的精確「地圖」。
 
-8.  **最終的成功**
-    *   在解決了所有依賴和程式碼問題後，最終測試成功，程式能夠以登入狀態，透過分析 `Content-Type` 標頭，精準捕獲並下載所有影片。
+8.  **最後一哩路：迴歸 Bug 與檔名淨化**
+    *   **迴歸 Bug:** 在實作了完整的資料庫和元數據解析邏輯後，使用者回報程式又無法抓取到影片了。經查，這是一個嚴重的邏輯迴歸：程式只分析了「最大」的一個數據包，而忽略了滾動後載入的其他數據包。
+    *   **迴歸修正:** 我們重寫了 `scraper.py` 的核心迴圈，使其能夠正確處理所有捕獲到的數據包，修正了這個問題。
+    *   **檔名 Bug:** 在使用者最終實測中，又發現因貼文標題包含換行符、emoji 等特殊字元而導致的 `[Errno 22] Invalid argument` 下載失敗問題。
+    *   **最終修正:** 我們在 `main.py` 中加入了一個更強健的 `sanitize_filename` 函式，徹底解決了檔名問題，讓整個流程達到生產級別的穩定性。
 
 ## 交接手冊與 Todolist
 
@@ -70,10 +74,11 @@
 - [x] **環境建置:** 初始化 Git 與 Python 虛擬環境 (`uv venv`)。
 - [x] **安全設定:** 建立 `.gitignore` 並加入 `.env`，確保憑證安全。
 - [x] **安裝依賴:** 使用 `uv add` 與 `uv sync` 成功安裝並鎖定所有必要套件。
-- [x] **實作 (爬蟲):** 編寫 `scraper.py`，實現基於 Cookie 認證與 Content-Type 分析的影片抓取邏輯。
-- [x] **實作 (下載):** 編寫 `downloader.py`，整合 `yt-dlp` 進行下載。
-- [x] **整合 (CLI):** 重構 `main.py`，建立功能完善的命令列介面。
-- [x] **完整測試:** 完成端到端測試，確認從抓取到下載的完整流程暢通。
+- [x] **實作 (爬蟲):** 編寫 `scraper.py`，實現基於 Cookie 認證與 API JSON 解析的完整影片元數據抓取邏輯。
+- [x] **實作 (下載):** 編寫 `downloader.py`，並由 `main.py` 負責生成安全的檔名。
+- [x] **整合 (CLI):** 重構 `main.py`，建立支援三種模式（用戶、搜尋、首頁）的命令列介面。
+- [x] **資料庫:** 建立 `database.py` 模組，並在主流程中整合資料庫初始化、查詢去重、新增紀錄等功能。
+- [x] **完整測試:** 完成端到端測試，確認整個專案穩定、可靠。
 
 ### Phase 2: 擴充與優化 (未來展望)
 
