@@ -1,0 +1,15 @@
+[project]
+name = "theads2yt"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.32.5",
+    "selenium>=4.37.0",
+    "selenium-wire>=5.1.0",
+    "webdriver-manager>=4.0.2",
+    "yt-dlp>=2025.10.14",
+    "blinker==1.7.0",
+    "setuptools>=80.9.0",
+]
