@@ -1,6 +1,29 @@
-# Threads Video Downloader
+# threads-dlp
 
-A powerful command-line tool to download all videos from a specific user's profile on Threads.net by simulating a real user login.
+threads-dlp is a powerful and resilient command-line tool for downloading videos from Threads.net. Born out of necessity, it provides a
+reliable solution where other methods fall short.
+
+In an ecosystem where the official Threads API is not readily available to all developers and generic downloaders fail to parse Threads'
+modern, dynamic front-end, threads-dlp carves its own path. It does not rely on brittle HTML parsing. Instead, it automates a real browser
+to simulate human interaction, ensuring it sees the website exactly as a logged-in user does.
+
+Core Features & Philosophy:
+
+ * Secure Cookie-Based Authentication: To access content behind a login, threads-dlp uses your browser's session cookie. This method is both
+   more secure—as you never expose your password—and more reliable, effortlessly bypassing complex login forms and two-factor authentication
+   (2FA).
+
+ * Intelligent Network Sniffing: The heart of its extraction logic lies in selenium-wire, which intercepts all network traffic from the
+   browser. It intelligently filters this traffic and identifies video streams by inspecting their Content-Type headers. This is a far more
+   robust technique than searching for specific URL patterns (like .mp4), as it finds the video data regardless of how the URL is formatted.
+
+ * Powered by the Best: For the final download process, the task is delegated to the legendary yt-dlp engine, leveraging its speed,
+   reliability, and battle-tested download capabilities.
+
+The name threads-dlp is a direct homage to the venerable yt-dlp project. It embraces the same philosophy of creating a powerful, focused,
+and community-needed tool. The 'p' can stand for Python, Plus, or simply serve as a nod to its spiritual successor status in tackling a
+new, challenging platform. This project is the result of a deep-dive investigation and a journey through multiple technical challenges,
+culminating in a stable and effective tool for creators and archivists.
 
 ---
 
@@ -25,8 +48,8 @@ A powerful command-line tool to download all videos from a specific user's profi
 
 1.  **Clone the Project**
     ```bash
-    git clone https://github.com/your-username/theads2yt.git
-    cd theads2yt
+    git clone https://github.com/LayorX/threads-dlp.git
+    cd threads-dlp
     ```
 
 2.  **Install `uv` (if not already installed)**
@@ -59,7 +82,7 @@ This tool requires your Threads session cookie to log in. This method is secure 
 
 ### 2. Create the `.env` File
 
-1.  In the project's root directory (`theads2yt`), manually create a new text file.
+1.  In the project's root directory (`threads-dlp`), manually create a new text file.
 2.  Rename the file to `.env` (note the dot at the beginning).
 3.  Open the `.env` file with a text editor and write only the following line, replacing `your_cookie_value` with the long string you just copied:
     ```
