@@ -113,8 +113,8 @@ def generate_metadata(full_caption: str, video_filename: str, publish_time_iso: 
             "tags": ["étiquette1", "étiquette2", "étiquette3"]
         }}
         "zh-CN": {{
-          "title": "Titre français de la vidéo",
-          "description": "Description détaillée en français avec #hashtags.",
+          "title": "视频的简体中文标题",
+          "description": "视频的简体中文详细描述，包含 #hashtags。" 
             "tags": ["étiquette1", "étiquette2", "étiquette3"]
         }}
       }}
@@ -174,7 +174,6 @@ def upload_video(video_path: str, meta_path: str, config: dict):
         return False
 
 def main():
-    # ... (rest of the function is unchanged)
     config = load_config()
     if not config:
         return
@@ -200,14 +199,14 @@ def main():
     logging.info(f"後續影片的發布時間間隔為 {time_increment_hours} 小時。")
 
     for i, video_data in enumerate(videos_to_upload):
-        post_id = video_data['post_id']
+        video_id = video_data['video_id']
         video_path = video_data['local_path']
         full_caption = video_data['caption']
         if not os.path.exists(video_path):
-            logging.warning(f"跳過 Post ID: {post_id}，因為找不到本地檔案: {video_path}")
+            logging.warning(f"跳過 Video ID: {video_id}，因為找不到本地檔案: {video_path}")
             continue
         
-        logging.info(f"--- 正在處理第 {i+1}/{len(videos_to_upload)} 個影片: {os.path.basename(video_path)} (Post ID: {post_id}) ---")
+        logging.info(f"--- 正在處理第 {i+1}/{len(videos_to_upload)} 個影片: {os.path.basename(video_path)} (Video ID: {video_id}) ---")
         
         # 使用新的排程邏輯計算發布時間
         publish_time = first_publish_time + timedelta(hours=i * time_increment_hours)
@@ -219,20 +218,20 @@ def main():
         meta_path = os.path.join(os.path.dirname(video_path), meta_filename)
         metadata = generate_metadata(full_caption, video_filename, publish_time_iso, config)
         if not metadata:
-            logging.warning(f"跳過影片 '{post_id}' 因為元數據生成失敗。")
+            logging.warning(f"跳過影片 '{video_id}' 因為元數據生成失敗。")
             continue
         with open(meta_path, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=4)
         upload_successful = upload_video(video_path, meta_path, config)
         if upload_successful:
             try:
-                update_upload_status(post_id, status=True)
+                update_upload_status(video_id, status=True)
                 # os.remove(meta_path)
             except Exception as e:
                 logging.error(f"[致命錯誤] 更新資料庫狀態失敗: {e}，中止執行。")
                 break
         else:
-            logging.error(f"影片 '{post_id}' 上傳失敗，中止本次所有任務。")
+            logging.error(f"影片 '{video_id}' 上傳失敗，中止本次所有任務。")
             break
         time.sleep(5)
     logging.info("所有上傳任務處理完畢。")

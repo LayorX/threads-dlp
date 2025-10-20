@@ -2,12 +2,17 @@ import os
 import time
 import json
 import zstandard
+import logging
 from datetime import datetime
 from dotenv import load_dotenv
 from seleniumwire import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
+
+# 匯入新功能所需的模組
+from modules.threads_client import like_post
+from modules.database import add_liked_post
 
 def safe_get(data, keys, default=None):
     """安全地從巢狀字典中獲取值。"""
@@ -17,26 +22,25 @@ def safe_get(data, keys, default=None):
         data = data.get(key)
     return data if data is not None else default
 
-def scrape_videos(url: str, scroll_count: int = 3) -> list[dict]:
+def scrape_videos(url: str, scroll_count: int, like_threshold: int, download_threshold: int, liked_post_ids: set, continuous: bool = False) -> list[dict]:
     """
-    [生產模式 V4 - 精準解析版] 透過 Cookie 認證，攔截並精準解析 API 回應，提取完整的影片元數據。
+    [生產模式 V4 - API 模擬版]
+    遍歷 GraphQL API 數據，當讚數達標時，呼叫 like_post 函式模擬按讚請求。
     """
-    # --- 檔案生命週期管理：刪除舊的暫存檔 ---
     output_filename = "last_run_graphql_output.json"
     if os.path.exists(output_filename):
         try:
             os.remove(output_filename)
-            print(f"已刪除舊的暫存檔: {output_filename}")
         except OSError as e:
-            print(f"[警告] 刪除舊的暫存檔失敗: {e}")
+            logging.warning(f"[Scraper] 刪除舊的暫存檔失敗: {e}")
 
     load_dotenv()
     session_cookie = os.getenv("THREADS_SESSION_COOKIE")
     if not session_cookie:
-        print("錯誤：請在 .env 檔案中設定 THREADS_SESSION_COOKIE。")
+        logging.error("錯誤：請在 .env 檔案中設定 THREADS_SESSION_COOKIE。")
         return []
 
-    print("正在啟動爬蟲 (V4 最終版引擎)...")
+    logging.info("正在啟動爬蟲 (V4 API 模擬引擎)...")
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
@@ -48,111 +52,120 @@ def scrape_videos(url: str, scroll_count: int = 3) -> list[dict]:
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
     scraped_videos = []
-    processed_post_ids = set()
+    processed_post_ids = set() # 用於在單次運行中避免重複解析同一個 post
 
     try:
-        print("正在注入 Cookie...")
+        logging.info("正在注入 Cookie...")
         driver.get("https://www.threads.net/")
         driver.add_cookie({'name': 'sessionid', 'value': session_cookie})
         driver.refresh()
         time.sleep(5)
 
-        print(f"\n正在導航至目標頁面: {url}")
+        logging.info(f"\n正在導航至目標頁面: {url}")
         driver.get(url)
-        print("等待頁面載入...")
+        logging.info("等待頁面載入...")
         time.sleep(5)
 
-        print(f"開始滾動頁面 ({scroll_count} 次)...")
-        for i in range(scroll_count):
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            print(f"  滾動 {i + 1}/{scroll_count}...")
-            time.sleep(4) # 延長等待時間以確保 API 請求完成
+        total_scrolls = 0
+        MAX_TOTAL_SCROLLS = 100
 
-        print("\n--- 分析開始：解析所有捕獲的 GraphQL 數據包 ---")
-        
-        target_requests = [r for r in driver.requests if 'graphql/query' in r.url and r.response and 'zstd' in r.response.headers.get('Content-Encoding', '') and len(r.response.body) > 1000]
+        while True:
+            current_scroll_target = scroll_count if not continuous else 3
+            logging.info(f"開始滾動頁面 ({current_scroll_target} 次)...")
+            for i in range(current_scroll_target):
+                if total_scrolls >= MAX_TOTAL_SCROLLS:
+                    logging.warning("已達到最大滾動次數上限，停止滾動。")
+                    break
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                total_scrolls += 1
+                logging.info(f"  滾動 {total_scrolls}/{MAX_TOTAL_SCROLLS if continuous else scroll_count}...")
+                time.sleep(4)
+            
+            if total_scrolls >= MAX_TOTAL_SCROLLS:
+                break
 
-        if not target_requests:
-            raise Exception("未能捕獲到任何包含貼文數據的 GraphQL API 請求。" )
+            logging.info("\n--- 分析開始：解析所有捕獲的 GraphQL 數據包 ---")
+            target_requests = [r for r in driver.requests if 'graphql/query' in r.url and r.response and 'zstd' in r.response.headers.get('Content-Encoding', '')]
 
-        print(f"成功鎖定 {len(target_requests)} 個目標 API 請求。開始解壓縮與解析...")
-        
-        all_posts = []
-        all_graphql_data_for_saving = [] # 用於儲存原始數據
-        dctx = zstandard.ZstdDecompressor()
-
-        for request in target_requests:
-            try:
-                decompressed_body = dctx.decompress(request.response.body)
-                data = json.loads(decompressed_body.decode('utf-8'))
-                all_graphql_data_for_saving.append(data) # 收集原始數據
-                
-                # 根據真實結構，直接定位到 `edges`
-                edges = safe_get(data, ('data', 'feedData', 'edges'))
-                if not edges:
-                    # 兼容另一種可能的結構
-                    if isinstance(data.get('data'), dict):
-                         for key, value in data['data'].items():
-                            if isinstance(value, dict):
-                                inner_edges = value.get('edges')
-                                if isinstance(inner_edges, list):
-                                    edges = inner_edges
-                                    break
-
-                if edges:
-                    all_posts.extend(edges)
-
-            except Exception as e:
-                print(f"    處理數據包時發生錯誤: {e}")
-                continue
-
-            # --- 檔案生命週期管理：儲存新的暫存檔 ---
-            if all_graphql_data_for_saving:
-                try:
-                    with open(output_filename, 'w', encoding='utf-8') as f:
-                        json.dump(all_graphql_data_for_saving, f, ensure_ascii=False, indent=4)
-                    print(f"已將本次抓取的 {len(all_graphql_data_for_saving)} 組 GraphQL 原始數據儲存至: {output_filename}")
-                except IOError as e:
-                    print(f"[警告] 儲存暫存檔失敗: {e}")
-
-        print(f"\n解析到 {len(all_posts)} 個總貼文項目。開始篩選影片...")
-
-        for edge in all_posts:
-            thread_items = safe_get(edge, ('node', 'text_post_app_thread', 'thread_items'), [])
-            for item in thread_items:
-                post = item.get('post')
-                if not post:
+            if not target_requests:
+                logging.warning("未能捕獲到任何包含貼文數據的 GraphQL API 請求。")
+                if continuous and len(scraped_videos) < 5:
                     continue
+                else:
+                    break
 
-                # 處理單一影片和輪播影片
-                media_items = [post] + (post.get('carousel_media') or [])
-                for media in media_items:
-                    if not media.get('video_versions'):
-                        continue
+            all_posts = []
+            dctx = zstandard.ZstdDecompressor()
+            for request in target_requests:
+                try:
+                    data = json.loads(dctx.decompress(request.response.body).decode('utf-8'))
+                    edges = safe_get(data, ('data', 'feedData', 'edges')) or safe_get(data, ('data', 'search_results', 'edges'))
+                    if edges: all_posts.extend(edges)
+                except Exception as e:
+                    logging.error(f"處理數據包時發生錯誤: {e}")
+            del driver.requests[:]
 
-                    post_id = media.get('pk')
-                    if not post_id or post_id in processed_post_ids:
-                        continue
+            logging.info(f"解析到 {len(all_posts)} 個總貼文項目。開始根據門檻進行互動與篩選...")
+            for edge in all_posts:
+                thread_items = safe_get(edge, ('node', 'text_post_app_thread', 'thread_items'), [])
+                for item in thread_items:
+                    post = item.get('post')
+                    if not post: continue
 
-                    video_data = {}
-                    video_data['post_id'] = post_id
-                    video_data['post_url'] = f"https://www.threads.net/t/{post.get('code')}" # 使用主 post 的 code
-                    video_data['video_url'] = media['video_versions'][0]['url']
-                    video_data['author'] = post.get('user', {}).get('username')
-                    video_data['caption'] = post.get('caption', {}).get('text') if post.get('caption') else ""
-                    video_data['like_count'] = post.get('like_count', 0)
-                    video_data['comment_count'] = safe_get(post, ('text_post_app_info', 'direct_reply_count'), 0)
-                    video_data['timestamp'] = datetime.fromtimestamp(post.get('taken_at', 0)).strftime('%Y-%m-%d %H:%M:%S')
+                    main_post_id = post.get('pk')
+                    if not main_post_id or main_post_id in processed_post_ids: continue
 
-                    scraped_videos.append(video_data)
-                    processed_post_ids.add(post_id)
-                    print(f"  [篩選到影片] 作者: {video_data['author']}, Post ID: {video_data['post_id']}")
+                    like_count = post.get('like_count', 0)
+
+                    # --- V4 按讚決策邏輯 ---
+                    if like_threshold != -1 and like_count >= like_threshold:
+                        if main_post_id not in liked_post_ids:
+                            logging.info(f"[互動] 貼文 {main_post_id} 讚數 ({like_count}) 已達門檻 ({like_threshold})，準備呼叫 API 按讚...")
+                            if like_post(driver, main_post_id):
+                                post_url = f"https://www.threads.net/t/{post.get('code')}"
+                                add_liked_post(main_post_id, post_url)
+                                liked_post_ids.add(main_post_id)
+                        else:
+                            logging.debug(f"[互動] 貼文 {main_post_id} 已存在於按讚紀錄中，跳過。")
+
+                    # --- 下載篩選邏輯 (V4.1 - 修正版) ---
+                    # 檢查貼文本身或輪播中是否包含任何影片
+                    has_video_in_post = post.get('video_versions') or any(media.get('video_versions') for media in post.get('carousel_media', []) or [])
+
+                    if like_count >= download_threshold and has_video_in_post:
+                        logging.info(f"[篩選] Post ID: {main_post_id} 讚數 ({like_count}) 已達下載門檻 ({download_threshold})，蒐集影片中...")
+                        all_media = [post] + (post.get('carousel_media') or [])
+                        for video_index, media in enumerate(all_media, 1):
+                            if not media.get('video_versions'): continue
+                            video_data = {
+                                'post_id': main_post_id,
+                                'video_index': video_index,
+                                'post_url': f"https://www.threads.net/t/{post.get('code')}",
+                                'video_url': media['video_versions'][0]['url'],
+                                'author': post.get('user', {}).get('username'),
+                                'caption': safe_get(post, ('caption', 'text'), ""),
+                                'like_count': like_count,
+                                'comment_count': safe_get(post, ('text_post_app_info', 'direct_reply_count'), 0),
+                                'timestamp': datetime.fromtimestamp(post.get('taken_at', 0)).strftime('%Y-%m-%d %H:%M:%S')
+                            }
+                            video_unique_id = f"{main_post_id}-{video_index}"
+                            if not any(v['post_id'] == main_post_id and v['video_index'] == video_index for v in scraped_videos):
+                                scraped_videos.append(video_data)
+                                logging.info(f"  [+] 已將影片加入待下載清單: {video_unique_id}")
+                    
+                    processed_post_ids.add(main_post_id)
+
+            # --- 檢查是否結束持續模式 ---
+            if continuous and len(scraped_videos) < 5:
+                logging.info(f"目前蒐集到 {len(scraped_videos)}/5 個影片，繼續滾動...")
+            else:
+                break
 
     except Exception as e:
-        print(f"爬取過程中發生錯誤: {e}")
+        logging.error(f"爬取過程中發生錯誤: {e}")
     finally:
-        print("關閉瀏覽器...")
+        logging.info("關閉瀏覽器...")
         driver.quit()
 
-    print(f"\n本次運行共篩選出 {len(scraped_videos)} 個影片。")
+    logging.info(f"\n本次運行共篩選出 {len(scraped_videos)} 個符合條件的影片。")
     return scraped_videos
