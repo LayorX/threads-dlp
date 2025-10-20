@@ -21,6 +21,15 @@ def scrape_videos(url: str, scroll_count: int = 3) -> list[dict]:
     """
     [生產模式 V4 - 精準解析版] 透過 Cookie 認證，攔截並精準解析 API 回應，提取完整的影片元數據。
     """
+    # --- 檔案生命週期管理：刪除舊的暫存檔 ---
+    output_filename = "last_run_graphql_output.json"
+    if os.path.exists(output_filename):
+        try:
+            os.remove(output_filename)
+            print(f"已刪除舊的暫存檔: {output_filename}")
+        except OSError as e:
+            print(f"[警告] 刪除舊的暫存檔失敗: {e}")
+
     load_dotenv()
     session_cookie = os.getenv("THREADS_SESSION_COOKIE")
     if not session_cookie:
@@ -69,12 +78,14 @@ def scrape_videos(url: str, scroll_count: int = 3) -> list[dict]:
         print(f"成功鎖定 {len(target_requests)} 個目標 API 請求。開始解壓縮與解析...")
         
         all_posts = []
+        all_graphql_data_for_saving = [] # 用於儲存原始數據
         dctx = zstandard.ZstdDecompressor()
 
         for request in target_requests:
             try:
                 decompressed_body = dctx.decompress(request.response.body)
                 data = json.loads(decompressed_body.decode('utf-8'))
+                all_graphql_data_for_saving.append(data) # 收集原始數據
                 
                 # 根據真實結構，直接定位到 `edges`
                 edges = safe_get(data, ('data', 'feedData', 'edges'))
@@ -94,6 +105,15 @@ def scrape_videos(url: str, scroll_count: int = 3) -> list[dict]:
             except Exception as e:
                 print(f"    處理數據包時發生錯誤: {e}")
                 continue
+
+            # --- 檔案生命週期管理：儲存新的暫存檔 ---
+            if all_graphql_data_for_saving:
+                try:
+                    with open(output_filename, 'w', encoding='utf-8') as f:
+                        json.dump(all_graphql_data_for_saving, f, ensure_ascii=False, indent=4)
+                    print(f"已將本次抓取的 {len(all_graphql_data_for_saving)} 組 GraphQL 原始數據儲存至: {output_filename}")
+                except IOError as e:
+                    print(f"[警告] 儲存暫存檔失敗: {e}")
 
         print(f"\n解析到 {len(all_posts)} 個總貼文項目。開始篩選影片...")
 

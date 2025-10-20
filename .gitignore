@@ -60,3 +60,17 @@ coverage.xml
 *.swp
 .env
 debug_json_output.json
+/yt_upload
+
+# Sensitive configuration
+config.json
+client_secrets.json
+request.token
+
+# Database file
+*.db
+
+# Log and debug files
+*.log
+last_run_graphql_output.json
+upload_log.txt

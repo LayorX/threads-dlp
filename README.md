@@ -48,9 +48,9 @@
 
 ## ⚙️ 設定教學
 
-本工具需要使用您的 Threads Session Cookie 來進行登入。這個方法安全可靠，您的密碼不會被洩露。
+### 1. 獲取 Threads Cookie
 
-### 1. 如何獲取 Cookie
+本工具需要使用您的 Threads Session Cookie 來進行登入。這個方法安全可靠，您的密碼不會被洩露。
 
 1.  在您的 **Chrome** 瀏覽器中，正常登入您的 Threads 帳號。
 2.  登入後，停在 Threads 的任何頁面上，按下鍵盤上的 `F12` 鍵，打開「開發者工具」。
@@ -58,55 +58,75 @@
 4.  在左側選單的 `Storage` -> `Cookies` 下，點擊 `https://www.threads.net`。
 5.  在右側列表中，找到 `Name` 為 **`sessionid`** 的那一項。
 6.  點擊 `sessionid` 這一行，在下方 `Cookie Value` 欄位中會顯示一長串文字。**完整地複製**這一整串文字。
-
-### 2. 建立 `.env` 檔案
-
-1.  在專案的根目錄 (`threads-dlp`) 中，手動建立一個新的文字檔案。
-2.  將檔案重新命名為 `.env` (注意，檔案名稱只有一個點和 env)。
-3.  用文字編輯器打開 `.env` 檔案，在裡面只寫下面這一行，並將 `你的Cookie值` 替換成你剛才複製的那一長串文字：
+7.  在專案根目錄下，手動建立一個名為 `.env` 的檔案，並將以下內容貼入，替換掉 `你的Cookie值`：
     ```
     THREADS_SESSION_COOKIE="你的Cookie值"
     ```
-4.  儲存並關閉檔案。您的設定已完成！
 
-## 💡 使用方法
+### 2. 自動上傳功能設定 (可選)
 
-所有指令都在專案根目錄下，透過 `uv run` 執行。
+如果你想使用下載後自動上傳至 YouTube 的功能，請完成以下設定。
 
-**1. 爬取指定用戶的頁面：**
+**步驟 1: 設定 Gemini API 金鑰 & 排程**
+
+1.  將專案中的 `config.json.template` 複製一份，並重新命名為 `config.json`。
+2.  用文字編輯器打開 `config.json`。
+3.  **`api_key`**: 填入你的 Google AI Studio (Gemini) API 金鑰。
+4.  **`is_publish_now`**: 設定第一部影片是否要「立即發布」。`true` 表示在 5 分鐘後發布，`false` 表示根據下一個參數進行預約。
+5.  **`publish_start_from`**: 如果 `is_publish_now` 為 `false`，這裡的數字代表第一部影片要從**幾小時後**開始發布。
+6.  **`time_increment_hours`**: 後續影片之間的時間間隔（以小時為單位）。
+
+**步驟 2: 設定 YouTube API 憑證**
+
+1.  前往 [Google Cloud Console](https://console.developers.google.com)。
+2.  建立一個新專案，並為其啟用 **YouTube Data API v3**。
+3.  設定「OAuth 同意畫面」，並在「測試使用者」中加入你的 Google 帳號。
+4.  前往「憑證」頁面，點擊「建立憑證」，選擇 **OAuth 用戶端 ID**。
+5.  在「應用程式類型」中，**務必選擇「電腦版應用程式」(Desktop app)**。
+6.  建立後，你會得到一組用戶端 ID 和密鑰。點擊旁邊的「下載 JSON」圖示。
+7.  將下載的 JSON 檔案，重新命名為 `client_secrets.json`，並放置在專案的根目錄下。
+
+**步驟 3: 首次執行與授權**
+
+- 當你第一次使用 `--upload` 功能時，程式會自動打開一個瀏覽器視窗，要求你登入 Google 帳號並授權。這是正常且安全的流程。
+- 授權成功後，專案目錄下會自動生成一個 `request.token` 檔案。只要這個檔案存在，未來執行上傳就不再需要手動授權。
+
+## 📖 使用方法
+
+確保你已經啟用了虛擬環境 (`.venv\Scripts\activate`)。
+
+**模式一：下載指定用戶的影片**
 ```bash
+# 只下載
 uv run python main.py zuck
+
+# 下載後自動上傳
+uv run python main.py zuck --upload
 ```
 
-**2. 搜尋關鍵字：**
+**模式二：下載搜尋關鍵字的影片**
 ```bash
-uv run python main.py --search "funny cats"
+# 只下載
+uv run python main.py --search "你想搜尋的關鍵字"
+
+# 下載後自動上傳
+uv run python main.py --search "你想搜尋的關鍵字" --upload
 ```
 
-**3. 爬取你的「為你推薦」首頁：**
+**模式三：下載首頁推薦的影片**
 ```bash
+# 只下載
 uv run python main.py
+
+# 下載後自動上傳
+uv run python main.py --upload
 ```
 
-**查看下載紀錄：**
-
-在命令列中以表格形式，列出所有已成功下載並記錄的影片。
+**模式四：僅執行上傳**
+如果只想上傳資料庫中已下載但尚未上傳的影片，可以單獨執行上傳器。
 ```bash
-uv run python view_db.py
+uv run python uploader.py
 ```
-
-### 命令列參數 (`main.py`)
-
-本工具支援三種模式，請擇一使用：
-
-1.  **`target`** (可選): 指定一個 Threads 使用者名稱 (例如 `zuck`)。
-2.  **`--search`** (可選): 給定一個關鍵字進行搜尋 (例如 `"funny cats"`)。
-3.  **(無參數)**: 如果 `target` 和 `--search` 均未提供，則會爬取預設的 Threads 首頁推薦內容。
-
-**其他參數：**
-
-- `--scroll`: (可選) 模擬頁面向下滾動的次數。滾動次數越多，能載入的貼文越多。預設為 `3`。
-- `--output`: (可選) 指定儲存影片的資料夾路徑。預設為 `downloads`。
 
 ## ⚠️ 免責聲明
 
