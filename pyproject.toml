@@ -15,4 +15,5 @@ dependencies = [
     "zstandard>=0.25.0",
     "tabulate>=0.9.0",
     "google-generativeai>=0.8.5",
+    "zstd>=1.5.7.2",
 ]

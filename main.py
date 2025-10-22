@@ -44,12 +44,12 @@ def main():
     parser.add_argument("-t", "--target", nargs='?', default=None, help="目標用戶名 (不需加@)")
     parser.add_argument("-s", "--search", type=str, help="要搜尋的關鍵字")
     parser.add_argument("-r", "--scroll", type=int, default=3, help="頁面滾動次數")
-    parser.add_argument("--output", type=str, default="downloads", help="影片儲存的資料夾")
+    parser.add_argument("-o", "--output", type=str, default="downloads", help="影片儲存的資料夾")
     parser.add_argument("-u", "--upload", action='store_true', help="下載完成後，自動執行上傳器")
     
     # --- 智慧互動參數 ---
-    parser.add_argument("--like-above", type=int, default=None, help="覆寫設定檔，當讚數 >= N 時按讚")
-    parser.add_argument("--download-above", type=int, default=None, help="覆寫設定檔，當讚數 >= N 時下載")
+    parser.add_argument("-l^", "--like-above", type=int, default=None, help="覆寫設定檔，當讚數 >= N 時按讚")
+    parser.add_argument("-d^", "--download-above", type=int, default=None, help="覆寫設定檔，當讚數 >= N 時下載")
     parser.add_argument("-c", "--continuous", action='store_true', help="持續滾動模式，直到找到至少5個符合條件的影片")
 
     # --- 元資訊與偵錯參數 ---
@@ -90,14 +90,18 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
     
     # --- 核心任務委派給 scraper ---
-    scraped_videos = scrape_videos(
-        url=target_url, 
-        scroll_count=args.scroll,
-        like_threshold=like_threshold,
-        download_threshold=download_threshold,
-        liked_post_ids=liked_post_ids,
-        continuous=args.continuous
-    )
+    try:
+        scraped_videos = scrape_videos(
+            url=target_url, 
+            scroll_count=args.scroll,
+            like_threshold=like_threshold,
+            download_threshold=download_threshold,
+            liked_post_ids=liked_post_ids,
+            continuous=args.continuous
+        )
+    except ValueError as e:
+        print(f"\n[錯誤] 操作中止：{e}")
+        return # 提前終止 main 函式
 
     if not scraped_videos:
         print("\n--- 未抓取到任何符合下載條件的新影片。 ---")

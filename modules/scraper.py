@@ -11,7 +11,7 @@ from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 
 # 匯入新功能所需的模組
-from modules.threads_client import like_post
+from modules.threads_client import like_post, get_like_tokens
 from modules.database import add_liked_post
 
 def safe_get(data, keys, default=None):
@@ -24,7 +24,7 @@ def safe_get(data, keys, default=None):
 
 def scrape_videos(url: str, scroll_count: int, like_threshold: int, download_threshold: int, liked_post_ids: set, continuous: bool = False) -> list[dict]:
     """
-    [生產模式 V4 - API 模擬版]
+    [生產模式 V5 - API 模擬版]
     遍歷 GraphQL API 數據，當讚數達標時，呼叫 like_post 函式模擬按讚請求。
     """
     output_filename = "last_run_graphql_output.json"
@@ -40,7 +40,7 @@ def scrape_videos(url: str, scroll_count: int, like_threshold: int, download_thr
         logging.error("錯誤：請在 .env 檔案中設定 THREADS_SESSION_COOKIE。")
         return []
 
-    logging.info("正在啟動爬蟲 (V4 API 模擬引擎)...")
+    logging.info("正在啟動爬蟲 (V5 API 模擬引擎)...")
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
@@ -53,6 +53,11 @@ def scrape_videos(url: str, scroll_count: int, like_threshold: int, download_thr
 
     scraped_videos = []
     processed_post_ids = set() # 用於在單次運行中避免重複解析同一個 post
+    
+    # --- V5 新增：權杖儲存 ---
+    csrf_token = None
+    lsd_token = None
+    can_like_posts = False
 
     try:
         logging.info("正在注入 Cookie...")
@@ -60,6 +65,24 @@ def scrape_videos(url: str, scroll_count: int, like_threshold: int, download_thr
         driver.add_cookie({'name': 'sessionid', 'value': session_cookie})
         driver.refresh()
         time.sleep(5)
+
+        # --- V5 新增：Cookie 有效性驗證 ---
+        logging.info("正在驗證 Cookie 有效性...")
+        page_title = driver.title.lower()
+        if 'log in' in page_title or '登入' in page_title:
+            error_message = "Cookie 已失效或無效，請更新您的 .env 檔案中的 THREADS_SESSION_COOKIE。"
+            logging.critical(error_message)
+            raise ValueError(error_message)
+        logging.info("Cookie 驗證成功，帳號已登入。")
+        # --- 驗證結束 ---
+
+        # --- V5 新增：獲取按讚權杖 ---
+        csrf_token, lsd_token = get_like_tokens(driver)
+        if csrf_token and lsd_token:
+            can_like_posts = True
+        else:
+            logging.warning("無法獲取按讚權杖，按讚功能將被停用。")
+        # --- 權杖獲取結束 ---
 
         logging.info(f"\n正在導航至目標頁面: {url}")
         driver.get(url)
@@ -105,6 +128,11 @@ def scrape_videos(url: str, scroll_count: int, like_threshold: int, download_thr
                     logging.error(f"處理數據包時發生錯誤: {e}")
             del driver.requests[:]
 
+            # --- V5 新增：空數據檢查 ---
+            if not all_posts:
+                logging.warning("警告：未能從 API 回應中解析出任何貼文。目標頁面可能沒有內容，或 API 結構已變更。")
+            # --- 檢查結束 ---
+
             logging.info(f"解析到 {len(all_posts)} 個總貼文項目。開始根據門檻進行互動與篩選...")
             for edge in all_posts:
                 thread_items = safe_get(edge, ('node', 'text_post_app_thread', 'thread_items'), [])
@@ -112,16 +140,49 @@ def scrape_videos(url: str, scroll_count: int, like_threshold: int, download_thr
                     post = item.get('post')
                     if not post: continue
 
+                    # --- 黑盒子紀錄器 V1 ---
+                    try:
+                        log_message = "\n--- 發現貼文 ---\n"
+                        author = safe_get(post, ('user', 'username'), '未知作者')
+                        post_id = post.get('pk', '未知ID')
+                        like_count = post.get('like_count', 0)
+                        caption = safe_get(post, ('caption', 'text'), "").replace('\n', ' ')
+                        
+                        log_message += f"  作者: {author}\n"
+                        log_message += f"  ID: {post_id}\n"
+                        log_message += f"  讚數: {like_count}\n"
+                        log_message += f"  內文: {caption[:80]}...\n"
+
+                        # 檢查影片
+                        video_url = "無"
+                        if post.get('video_versions'):
+                            video_url = post['video_versions'][0]['url']
+                        elif post.get('carousel_media'):
+                            for media in post.get('carousel_media', []):
+                                if media.get('video_versions'):
+                                    video_url = media['video_versions'][0]['url']
+                                    break # 只記錄第一個找到的影片
+                        
+                        log_message += f"  影片: {'是' if video_url != '無' else '否'}\n"
+                        log_message += "-----------------\n"
+
+                        with open("scraped_posts_audit.log", "a", encoding="utf-8") as f:
+                            f.write(log_message)
+                    except Exception as e:
+                        with open("scraped_posts_audit.log", "a", encoding="utf-8") as f:
+                            f.write(f"--- 紀錄貼文時發生錯誤: {e} ---\n")
+                    # --- 黑盒子紀錄器結束 ---
+
                     main_post_id = post.get('pk')
                     if not main_post_id or main_post_id in processed_post_ids: continue
 
                     like_count = post.get('like_count', 0)
 
-                    # --- V4 按讚決策邏輯 ---
-                    if like_threshold != -1 and like_count >= like_threshold:
+                    # --- V5 按讚決策邏輯 ---
+                    if can_like_posts and like_threshold != -1 and like_count >= like_threshold:
                         if main_post_id not in liked_post_ids:
                             logging.info(f"[互動] 貼文 {main_post_id} 讚數 ({like_count}) 已達門檻 ({like_threshold})，準備呼叫 API 按讚...")
-                            if like_post(driver, main_post_id):
+                            if like_post(driver, main_post_id, csrf_token, lsd_token):
                                 post_url = f"https://www.threads.net/t/{post.get('code')}"
                                 add_liked_post(main_post_id, post_url)
                                 liked_post_ids.add(main_post_id)
@@ -131,6 +192,7 @@ def scrape_videos(url: str, scroll_count: int, like_threshold: int, download_thr
                     # --- 下載篩選邏輯 (V4.1 - 修正版) ---
                     # 檢查貼文本身或輪播中是否包含任何影片
                     has_video_in_post = post.get('video_versions') or any(media.get('video_versions') for media in post.get('carousel_media', []) or [])
+
 
                     if like_count >= download_threshold and has_video_in_post:
                         logging.info(f"[篩選] Post ID: {main_post_id} 讚數 ({like_count}) 已達下載門檻 ({download_threshold})，蒐集影片中...")
