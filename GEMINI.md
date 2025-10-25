@@ -75,6 +75,7 @@
 10. **按讚功能 `Fetch` 失敗**
     *   **問題:** 在根據使用者提供的 `fetch` 請求，完美重構 `threads_client.py` 以模擬真實 API 呼叫後，實測時遭遇 `TypeError: Failed to fetch` 錯誤。此錯誤表明，儘管請求的參數和標頭都已盡力模擬，但在瀏覽器環境中執行時，仍被某種機制（可能是 CORS、CSP 安全策略或其他頁面腳本的限制）所阻止。
     *   **對策:** 為了隔離變數、專注排錯，我們決定創建一個獨立的、輕量級的測試腳本 `like_tester.py`。此腳本的唯一目的就是針對單一 URL 執行按讚操作，讓我們可以快速、重複地測試並診斷 `fetch` 失敗的根本原因。
+    *   **最新進展:** 我們在 `like_tester.py` 中加入了 `driver.get_log('browser')` 來捕獲瀏覽器控制台日誌，並在執行後將日誌寫入 `browser_console.log`。這讓我們能非同步地檢查 `fetch` 呼叫的詳細錯誤，這是解決此問題的關鍵一步。
 
 ## 交接手冊與 Todolist
 
@@ -110,18 +111,13 @@
     - [x] 為 `scraper.py` 增加了處理空 API 回應的日誌警告。
     - [x] 為 `downloader.py` 增加了最多 3 次的下載失敗重試機制。
 
-- [ ] **修正按讚功能 (偵錯中):**
-    - [x] 根據使用者提供的 `fetch` 程式碼，重構了 `threads_client.py`，改為使用 JavaScript 注入來模擬真實 API 請求。
-    - [x] 將新的 `threads_client.py` 整合進 `scraper.py` 的主流程中。
-    - [!] **發現問題：** 在實測中，按讚操作回報 `TypeError: Failed to fetch` 錯誤。
-    - [x] **制定對策：** 為了隔離問題，已建立一個全新的、專門用於按讚的測試腳本 `like_tester.py`。
-    - [!] **最新發現：**
-        - `TypeError: Failed to fetch` 錯誤發生在 JavaScript 的 `fetch` 呼叫內部。
-        - 直接從 JavaScript 返回 `fetch` 結果並未成功，顯示 `driver.execute_script` 可能無法正確傳回 `fetch` 的 Promise 結果。
-        - `selenium-wire` 的 `wait_for_request` 會逾時，表示 `fetch` 請求從未成功發出或完成。
-        - 持續出現的 `Http2ZombieException` 可能暗示著與 `selenium-wire` 或 Threads 的 HTTP/2 連線處理方式有關的深層問題。
-    - [x] **最新對策:** 已修改 `like_post` 函式，在執行 JavaScript 後，嘗試使用 `driver.get_log('browser')` 來捕獲瀏覽器的控制台日誌，希望能從中找到 `fetch` 失敗的蛛絲馬跡。
-    - [ ] **下一步 (交接任務):** 當你回來時，我們將再次執行 `uv run python like_tester.py --url "你提供的URL"`，並仔細分析捕獲到的瀏覽器控制台日誌，以徹底診斷 `fetch` 失敗的根本原因。
+- [ ] **修正按讚功能 (日誌分析中):**
+    - [x] **重構:** 根據真實 `fetch` 請求重構了 `threads_client.py`。
+    - [x] **問題:** 遭遇 `TypeError: Failed to fetch`，疑似被瀏覽器安全策略阻止。
+    - [x] **對策:** 建立 `like_tester.py` 進行隔離偵錯。
+    - [x] **進展:** 成功修改 `like_tester.py`，在測試結束後自動將瀏覽器控制台日誌儲存到 `browser_console.log` 檔案中。
+    - [!] **交接點:** 我們已經準備好執行 `like_tester.py` 來捕獲最關鍵的錯誤訊息。
+    - [ ] **下一步 (交接任務):** 當你回來時，我們將執行 `uv run python like_tester.py --url "你提供的URL"`，然後**仔細分析新產生的 `browser_console.log` 檔案**，從中找出 `fetch` 失敗的根本原因。
 
 - [ ] **增加多執行緒:** 研究為下載過程加入多執行緒，以加速大量影片的下載。
 - [ ] **AI 增強:** 評估 `Whisper` (語音轉文字), `OpenCV` (影片處理) 等 AI 相關函式庫，為未來增加 AI 功能做準備。
