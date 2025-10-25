@@ -74,3 +74,6 @@ request.token
 *.log
 last_run_graphql_output.json
 upload_log.txt
+debug_graphql.json
+debug_page_source.html
+.gemini/
