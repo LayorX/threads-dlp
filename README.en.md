@@ -69,44 +69,91 @@ This tool requires your Threads session cookie to log in. This method is secure 
     ```
 4.  Save and close the file. Your configuration is complete!
 
-## 💡 Usage
+## Usage
 
-All commands are run from the project root directory via `uv run`.
+1.  **Set up the environment:**
+    ```bash
+    # Install uv (if you haven't already)
+    pip install uv
 
-**1. Scrape a specific user's profile:**
-```bash
-uv run python main.py zuck
+    # Create a virtual environment
+    uv venv
+
+    # Activate the virtual environment (Windows)
+    .venv\Scripts\activate
+
+    # Install dependencies
+    uv sync
+    ```
+
+2.  **Create the `.env` file:**
+    - In the project root, create a file named `.env`.
+    - Add your Threads session cookie to it:
+      ```
+      THREADS_SESSION_COOKIE="your_session_id_string_here"
+      ```
+
+3.  **Run the downloader:**
+
+    - **Mode 1: Target a specific user**
+      ```bash
+      uv run python main.py zuck
+      ```
+
+    - **Mode 2: Search for a keyword**
+      ```bash
+      uv run python main.py --search "keyword here"
+      ```
+
+    - **Mode 3: Scrape the default home feed**
+      ```bash
+      uv run python main.py
+      ```
+
+4.  **(Optional) Run downloader and uploader sequentially:**
+    - Add the `--upload` flag to automatically trigger the uploader after the download is complete.
+      ```bash
+      uv run python main.py zuck --upload
+      ```
+
+5.  **(Optional) Run the uploader independently:**
+    - To only upload videos that are already in the database but not yet uploaded.
+      ```bash
+      uv run python uploader.py
+      ```
+
+## YouTube API Setup
+
+Talking to the Youtube API requires oauth2 authentication. As such, you must:
+
+1. Create an account on the [Google Developers Console](https://console.developers.google.com)
+1. Create a new project for this app
+1. Enable the Youtube API (APIs & Services -> Enable APIs and Services -> Click 'ENABLE APIS AND SERVICES' top right). Select 'YouTube Data API v3'
+1. Create OAuth consent screen (APIs & Services -> OAuth Consent Screen)
+   - Add a test user in "Audience -> Test users". This can be any Google User account but it should correspond with the Youtube account where videos will be uploaded.
+1. Create Credentials (APIs & Services -> Credentials -> click 'CREATE CREDENTIALS'), select 'OAuth client ID', select 'Web application'
+   - Add an 'Authorized redirect URI' of 'http://localhost:8080/oauth2callback'
+1. Download the client secrets JSON file (click download icon next to newly created client ID) and save it as file `client_secrets.json` in the same directory as the utility e.g.
+
+```json
+{
+  "web": {
+    "client_id": "xxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com",
+    "project_id": "youtubeuploader-yyyyy",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_secret": "xxxxxxxxxxxxxxxxxxxx",
+    "redirect_uris": [
+      "http://localhost:8080/oauth2callback"
+    ]
+  }
+}
 ```
 
-**2. Search for a keyword:**
-```bash
-uv run python main.py --search "funny cats"
-```
+**NOTE 1** Google will apply 'private' status on videos uploaded to newly created projects - from [Google's Announcement](https://developers.google.com/youtube/v3/revision_history#july-28,-2020):
 
-**3. Scrape your "For You" home feed:**
-```bash
-uv run python main.py
-```
-
-**Viewing Download Records:**
-
-List all successfully downloaded and recorded videos in a table format in your terminal.
-```bash
-uv run python view_db.py
-```
-
-### Command-Line Arguments (`main.py`)
-
-This tool supports three modes. Please choose one:
-
-1.  **`target`** (Optional): Specify a Threads username (e.g., `zuck`).
-2.  **`--search`** (Optional): Provide a keyword to search for (e.g., `"funny cats"`).
-3.  **(No arguments)**: If both `target` and `--search` are omitted, the tool will scrape the default Threads home feed.
-
-**Other Arguments:**
-
-- `--scroll`: (Optional) The number of times to scroll down the page. More scrolls load more posts. Defaults to `3`.
-- `--output`: (Optional) The directory path to save the downloaded videos. Defaults to `downloads`.
+> All videos uploaded via the videos.insert endpoint from unverified API projects created after 28 July 2020 will be restricted to private viewing mode. To lift this restriction, each project must undergo an audit to verify compliance with the Terms of Service.
 
 ## ⚠️ Disclaimer
 

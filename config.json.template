@@ -1,0 +1,11 @@
+{
+  "api_key": "在此處貼上您的 GEMINI API 金鑰",
+  "youtube_uploader_path": "./youtubeuploader.exe",
+
+  "like_threshold": -1,
+  "download_threshold": 1000,
+
+  "is_publish_now": true,
+  "publish_start_from": 0,
+  "time_increment_hours": 2
+}

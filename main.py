@@ -1,128 +1,170 @@
 # main.py
 
+import logging
 import argparse
 import os
 import re
-from urllib.parse import urlparse, quote
+import subprocess
+import json
+from collections import defaultdict
+from urllib.parse import quote
 
 from modules.downloader import download_video
 from modules.scraper import scrape_videos
-from modules.database import init_db, post_exists, add_video_entry
+from modules.database import init_db, get_all_existing_video_ids, add_video_entry, get_all_liked_post_ids
+
+__version__ = "1.0.0"
 
 def sanitize_filename(filename: str) -> str:
-    """清理檔名，移除在 Windows 中不合法的字元並限制長度。"""
-    # 移除 Windows 檔名中的非法字元: \ / : * ? " < > |
+    """清理並淨化檔名，移除無效字元和多餘的空格。"""
     sanitized = re.sub(r'[\\/:*?"<>|]', '-', filename)
-    # 移除換行符和回車符
     sanitized = re.sub(r'[\r\n]', ' ', sanitized)
-    # 移除其他所有不可印出的控制字元
     sanitized = "".join(c for c in sanitized if c.isprintable())
-    # 將多個空格合併為一個
     sanitized = re.sub(r'\s+', ' ', sanitized).strip()
-    # 限制總長度以防萬一 (Windows 路徑限制約為 260)
-    return sanitized[:180]
+    return sanitized[:180] # 限制檔名長度以避免系統問題
+
+def load_config() -> dict:
+    """載入設定檔，並為新功能提供預設值。"""
+    try:
+        with open("config.json", 'r', encoding='utf-8') as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        config = {}
+    
+    # 為新功能提供預設值
+    config.setdefault('like_threshold', -1)
+    config.setdefault('download_threshold', 1000)
+    return config
 
 def main():
-    """主函式，用於解析命令列參數並啟動影片抓取與下載流程。"""
-    init_db() # 確保資料庫已初始化
+    """主函式，負責指揮、設定載入、與最終的下載協調。"""
+    parser = argparse.ArgumentParser(description="從 Threads 下載影片，並可選擇性地進行智慧按讚與篩選。")
+    
+    # --- 基本參數 ---
+    parser.add_argument("-t", "--target", nargs='?', default=None, help="目標用戶名 (不需加@)")
+    parser.add_argument("-s", "--search", type=str, help="要搜尋的關鍵字")
+    parser.add_argument("-r", "--scroll", type=int, default=3, help="頁面滾動次數")
+    parser.add_argument("-o", "--output", type=str, default="downloads", help="影片儲存的資料夾")
+    parser.add_argument("-u", "--upload", action='store_true', help="下載完成後，自動執行上傳器")
+    
+    # --- 智慧互動參數 ---
+    parser.add_argument("-l^", "--like-above", type=int, default=None, help="覆寫設定檔，當讚數 >= N 時按讚")
+    parser.add_argument("-d^", "--download-above", type=int, default=None, help="覆寫設定檔，當讚數 >= N 時下載")
+    parser.add_argument("-c", "--continuous", action='store_true', help="持續滾動模式，直到找到至少5個符合條件的影片")
 
-    parser = argparse.ArgumentParser(
-        description="從 Threads 下載影片。支援指定用戶、搜尋關鍵字或預設首頁三種模式。",
-        formatter_class=argparse.RawTextHelpFormatter
-    )
-    parser.add_argument(
-        "target",
-        nargs='?',
-        default=None,
-        help="(模式一：指定用戶) 要處理的 Threads 使用者名稱 (例如 zuck)。"
-    )
-    parser.add_argument(
-        "--search",
-        type=str,
-        help="(模式二：搜尋關鍵字) 在 Threads 上搜尋指定的關鍵字。"
-    )
-    parser.add_argument(
-        "--scroll",
-        type=int,
-        default=3,
-        help="模擬頁面向下滾動的次數，以載入更多內容。預設為 3。"
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        default="downloads",
-        help="指定儲存影片的資料夾路徑。預設為 \"downloads\"."
-    )
+    # --- 元資訊與偵錯參數 ---
+    parser.add_argument("-d", "--debug", action='store_true', help="啟用詳細日誌輸出 (INFO 級別)")
+    parser.add_argument("-v", "--version", action='version', version=f'%(prog)s {__version__}', help="顯示程式版本號")
 
     args = parser.parse_args()
 
-    # --- 決定目標 URL ---
+    # --- 根據參數設定日誌 --- 
+    log_level = logging.INFO if args.debug else logging.WARNING
+    logging.basicConfig(level=log_level, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
+    config = load_config()
+
+    # --- 決定最終的門檻值 (命令列優先於設定檔) ---
+    like_threshold = args.like_above if args.like_above is not None else config['like_threshold']
+    download_threshold = args.download_above if args.download_above is not None else config['download_threshold']
+
+    # --- 批次讀取初始狀態 ---
+    init_db() # 確保所有資料表存在
+    existing_video_ids = get_all_existing_video_ids()
+    liked_post_ids = get_all_liked_post_ids()
+    print(f"[DB] 資料庫中已存在 {len(existing_video_ids)} 筆影片紀錄，{len(liked_post_ids)} 筆按讚紀錄。")
+    
     if args.search:
-        if args.target:
-            print("錯誤：請不要同時指定 `target` 和 `--search`。請擇一使用。\n")
-            return
-        # URL 編碼搜尋詞，以處理空格等特殊字元
-        encoded_query = quote(args.search)
-        target_url = f"https://www.threads.net/search?q={encoded_query}"
+        target_url = f"https://www.threads.net/search?q={quote(args.search)}"
         print(f"模式：搜尋關鍵字 \"{args.search}\"")
     elif args.target:
-        target_url = args.target
-        if not urlparse(target_url).scheme:
-            target_url = f"https://www.threads.net/@{args.target}"
+        target_url = f"https://www.threads.net/@{args.target}"
         print(f"模式：指定用戶 @{args.target}")
     else:
         target_url = "https://www.threads.net/"
         print("模式：預設首頁推薦內容")
 
-    print(f"目標 URL: {target_url}")
+    print(f"[設定] 按讚門檻: {like_threshold if like_threshold != -1 else '停用'}, 下載門檻: {download_threshold}")
 
-    # --- 執行爬取 ---
     output_dir = args.output
     os.makedirs(output_dir, exist_ok=True)
-    print(f"影片將儲存至: {os.path.abspath(output_dir)}")
     
-    scraped_videos = scrape_videos(target_url, scroll_count=args.scroll)
+    # --- 核心任務委派給 scraper ---
+    try:
+        scraped_videos = scrape_videos(
+            url=target_url, 
+            scroll_count=args.scroll,
+            like_threshold=like_threshold,
+            download_threshold=download_threshold,
+            liked_post_ids=liked_post_ids,
+            continuous=args.continuous
+        )
+    except ValueError as e:
+        print(f"\n[錯誤] 操作中止：{e}")
+        return # 提前終止 main 函式
 
     if not scraped_videos:
-        print("\n--- 未抓取到任何新的影片。 ---")
-        return
+        print("\n--- 未抓取到任何符合下載條件的新影片。 ---")
+    else:
+        print(f"\n--- 篩選完成，共 {len(scraped_videos)} 個影片待下載 ---")
+        # --- 按 post_id 分組，以便處理多影片貼文 ---
+        videos_by_post = defaultdict(list)
+        for video in scraped_videos:
+            # 再次檢查，以防萬一在同一次運行中 scraper 傳回了重複的項目
+            video_id = f"{video.get('post_id')}-{video.get('video_index', 1)}"
+            if video_id in existing_video_ids:
+                continue
+            videos_by_post[video['post_id']].append(video)
 
-    # --- 下載與紀錄流程 ---
-    new_videos_to_download = []
-    for video in scraped_videos:
-        if not post_exists(video['post_id']):
-            new_videos_to_download.append(video)
-        else:
-            print(f"[跳過] 貼文 {video['post_id']} 已存在於資料庫中，無需重複下載。")
+        new_videos_downloaded = 0
+        for post_id, videos in videos_by_post.items():
+            total_videos_in_post = len(videos)
+            
+            for video_data in videos:
+                video_index = video_data.get('video_index', 1)
+                video_id = f"{post_id}-{video_index}"
 
-    if not new_videos_to_download:
-        print("\n--- 所有抓取到的影片都已存在，無需下載。 ---")
-        return
+                safe_caption = str(video_data['caption']).encode('utf-8', 'ignore').decode('utf-8')
+                print(f"\n[下載任務] 正在處理影片 ID: {video_id}, 作者: {video_data['author']}, 內容: {safe_caption[:50]}...")
+                
+                # --- 智慧檔名生成邏輯 ---
+                author = video_data.get('author', 'unknown')[:20]
+                caption_part = video_data.get('caption', '')[:10]
+                likes = video_data.get('like_count', 0)
+                base_filename = f"{author} - {caption_part} - [{likes}]likes"
+                safe_base_filename = sanitize_filename(base_filename)
 
-    print(f"\n--- 共抓取到 {len(scraped_videos)} 個影片，其中 {len(new_videos_to_download)} 個是新的，準備下載 ---")
-    
-    for i, video_data in enumerate(new_videos_to_download):
-        print(f"\n正在下載影片 {i+1}/{len(new_videos_to_download)} (Post ID: {video_data['post_id']}) ")
-        # 安全地印出內容，避免編碼錯誤
-        safe_caption = str(video_data['caption']).encode('utf-8', 'ignore').decode('utf-8')
-        print(f"作者: {video_data['author']}, 內容: {safe_caption[:50]}...")
-        
-        # --- 生成並淨化檔名 ---
-        base_filename = f"{video_data['author']} - {video_data['caption']} [{video_data['post_id']}].mp4"
-        safe_filename = sanitize_filename(base_filename)
-        full_path = os.path.join(output_dir, safe_filename)
+                if total_videos_in_post > 1:
+                    final_filename = f"{safe_base_filename}-part{video_index}.mp4"
+                else:
+                    final_filename = f"{safe_base_filename}.mp4"
+                
+                full_path = os.path.join(output_dir, final_filename)
 
-        # 執行下載，傳入完整的儲存路徑
-        success = download_video(video_data['video_url'], full_path)
-        
-        if success:
-            # 下載成功後，將包含儲存路徑的完整資訊寫入資料庫
-            video_data['local_path'] = full_path
-            add_video_entry(video_data)
-        else:
-            print(f"[錯誤] 影片 {video_data['post_id']} 下載失敗，跳過紀錄。")
+                success = download_video(video_data['video_url'], full_path)
+                
+                if success:
+                    video_data['local_path'] = full_path
+                    try:
+                        add_video_entry(video_data)
+                        new_videos_downloaded += 1
+                    except Exception as e:
+                        print(f"[致命錯誤] 寫入資料庫失敗: {e}，中止執行。")
+                        break
+                else:
+                    print(f"[錯誤] 影片 {video_id} 下載失敗，跳過紀錄。")
+            else: 
+                continue
+            break
 
-    print("\n--- 所有新影片下載任務完成！ ---")
+        print(f"\n--- 本次共下載了 {new_videos_downloaded} 個新影片 ---")
+
+    if args.upload:
+        print("\n--- 所有下載任務已完成，即將啟動上傳器... ---")
+        try:
+            subprocess.run(["uv", "run", "python", "uploader.py"], check=True)
+        except Exception as e:
+            print(f"[錯誤] uploader.py 執行失敗: {e}")
 
 if __name__ == "__main__":
     main()
