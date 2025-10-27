@@ -34,8 +34,7 @@ def download_job():
     try:
         run_download_task(
             download_threshold_override=5000,
-            scroll_count=scrolls,
-            log_level=logging.INFO
+            scroll_count=scrolls
         )
     except Exception as e:
         logging.error(f"下載任務執行期間發生錯誤: {e}", exc_info=True)
@@ -76,7 +75,7 @@ def main():
 
     # --- 設定排程任務 ---
     # 每 4 小時執行一次下載任務
-    schedule.every(4).hours.do(download_job)
+    schedule.every(1).hours.do(download_job)
     logging.info("下載任務已排程，每 4 小時執行一次。")
     
     # 每日在指定時間 (UTC) 執行上傳檢查
