@@ -149,8 +149,8 @@ def main():
     parser.add_argument("-o", "--output", type=str, default="downloads", help="影片儲存的資料夾")
     parser.add_argument("-u", "--upload", action='store_true', help="下載完成後，自動執行上傳器")
     
-    parser.add_argument("--like-above", type=int, default=None, help="覆寫設定檔，當讚數 >= N 時按讚")
-    parser.add_argument("--download-above", type=int, default=None, help="覆寫設定檔，當讚數 >= N 時下載")
+    parser.add_argument("-l^", "--like-above", type=int, default=None, help="覆寫設定檔，當讚數 >= N 時按讚")
+    parser.add_argument("-d^", "--download-above", type=int, default=None, help="覆寫設定檔，當讚數 >= N 時下載")
     parser.add_argument("-c", "--continuous", action='store_true', help="持續滾動模式，直到找到至少5個符合條件的影片")
 
     parser.add_argument("-d", "--debug", action='store_true', help="啟用詳細日誌輸出 (INFO 級別)")
