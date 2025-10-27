@@ -33,7 +33,7 @@ def download_job():
     
     try:
         run_download_task(
-            target_username=target_user,
+            download_threshold_override=5000,
             scroll_count=scrolls,
             log_level=logging.INFO
         )
