@@ -7,7 +7,7 @@ import os
 # Import the refactored task functions
 from main import run_download_task
 from uploader import run_upload_task
-from modules.database import get_videos_to_upload_count, init_db
+from modules.database import get_all_videos_to_upload, init_db
 
 def setup_logging():
     """設定一個冪等的日誌記錄器，避免在匯入時重複設定。"""
@@ -49,7 +49,8 @@ def upload_job():
     logging.info("=== 開始每日上傳檢查任務 ===")
     try:
         init_db()
-        video_count = get_videos_to_upload_count()
+        videos_to_upload = get_all_videos_to_upload()
+        video_count = len(videos_to_upload)
         
         logging.info(f"資料庫中有 {video_count} 部影片等待上傳。")
         
