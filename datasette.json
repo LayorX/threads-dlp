@@ -1,0 +1,15 @@
+{
+  "plugins": {
+    "datasette-auth-passwords": {
+      "users": [
+        {
+          "username": "admin",
+          "password_hash": "pbkdf2_sha256$480000$e66ffa55ad0df24f1c472af94fa8f90a$BACOxCVm49EbbgLfrMhgY3CT1242hcbZtIt2tRzAXak="
+        }
+      ]
+    }
+  },
+  "allow": {
+    "username": "admin"
+  }
+}

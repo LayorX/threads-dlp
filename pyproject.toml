@@ -18,4 +18,5 @@ dependencies = [
     "zstd>=1.5.7.2",
     "schedule>=1.2.2",
     "datasette>=0.65.1",
+    "datasette-auth-passwords>=1.1.1",
 ]
