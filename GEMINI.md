@@ -77,6 +77,14 @@
     *   **對策:** 為了隔離變數、專注排錯，我們決定創建一個獨立的、輕量級的測試腳本 `like_tester.py`。此腳本的唯一目的就是針對單一 URL 執行按讚操作，讓我們可以快速、重複地測試並診斷 `fetch` 失敗的根本原因。
     *   **最新進展:** 我們在 `like_tester.py` 中加入了 `driver.get_log('browser')` 來捕獲瀏覽器控制台日誌，並在執行後將日誌寫入 `browser_console.log`。這讓我們能非同步地檢查 `fetch` 呼叫的詳細錯誤，這是解決此問題的關鍵一步。
 
+11. **Docker Build 失敗 (`apt-key` 錯誤)**
+    *   **問題:** 在建置 Docker 映像時，出現 `apt-key: not found` 錯誤，導致安裝 Google Chrome 失敗。這是因為 `apt-key` 在較新的 Debian/Ubuntu 版本中已被棄用。
+    *   **修正:** 我們更新了 `Dockerfile`，改用 Google 官方推薦的現代化方法。新的指令會將 Chrome 的簽署金鑰直接新增到受信任的目錄中，並在軟體源列表中明確指定金鑰路徑 (`signed-by`)，從而繞過 `apt-key`，確保了建置過程的穩定與安全。
+
+12. **排程器 `ImportError`**
+    *   **問題:** 部署後，`scheduler.py` 因 `ImportError: cannot import name 'get_videos_to_upload_count'` 而崩潰。經查，這是因為 `database.py` 中的函式已重構，原函式被 `get_all_videos_to_upload` 取代。
+    *   **修正:** 我們修改了 `scheduler.py`，將 `import` 的函式名稱更正為 `get_all_videos_to_upload`，並調整了相關邏輯，改為使用 `len()` 來獲取待上傳影片的數量，從而解決了啟動錯誤。
+
 ## 交接手冊與 Todolist
 
 ### Phase 1: 核心功能開發 (已全部完成)
@@ -113,11 +121,11 @@
 
 - [ ] **修正按讚功能 (日誌分析中):**
     - [x] **重構:** 根據真實 `fetch` 請求重構了 `threads_client.py`。
-    - [x] **問題:** 遭遇 `TypeError: Failed to fetch`，疑似被瀏覽器安全策略阻止。
-    - [x] **對策:** 建立 `like_tester.py` 進行隔離偵錯。
-    - [x] **進展:** 成功修改 `like_tester.py`，在測試結束後自動將瀏覽器控制台日誌儲存到 `browser_console.log` 檔案中。
-    - [!] **交接點:** 我們已經準備好執行 `like_tester.py` 來捕獲最關鍵的錯誤訊息。
-    - [ ] **下一步 (交接任務):** 當你回來時，我們將執行 `uv run python like_tester.py --url "你提供的URL"`，然後**仔細分析新產生的 `browser_console.log` 檔案**，從中找出 `fetch` 失敗的根本原因。
+    *   **問題:** 遭遇 `TypeError: Failed to fetch`，疑似被瀏覽器安全策略阻止。
+    *   **對策:** 建立 `like_tester.py` 進行隔離偵錯。
+    *   **進展:** 成功修改 `like_tester.py`，在測試結束後自動將瀏覽器控制台日誌儲存到 `browser_console.log` 檔案中。
+    *   [!] **交接點:** 我們已經準備好執行 `like_tester.py` 來捕獲最關鍵的錯誤訊息。
+    *   [ ] **下一步 (交接任務):** 當你回來時，我們將執行 `uv run python like_tester.py --url "你提供的URL"`，然後**仔細分析新產生的 `browser_console.log` 檔案**，從中找出 `fetch` 失敗的根本原因。
 
 - [ ] **增加多執行緒:** 研究為下載過程加入多執行緒，以加速大量影片的下載。
 - [ ] **AI 增強:** 評估 `Whisper` (語音轉文字), `OpenCV` (影片處理) 等 AI 相關函式庫，為未來增加 AI 功能做準備。

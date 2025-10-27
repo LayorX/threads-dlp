@@ -1,0 +1,35 @@
+# Git and environment files
+.git
+.gitignore
+.env
+
+# Docker files
+Dockerfile
+.dockerignore
+
+# Python virtual environment and cache
+.venv
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build artifacts
+/dist/
+/build/
+*.egg-info/
+
+# Local data and logs
+downloads/
+browser_console.log
+debug_json_output.json
+last_run_graphql_output.json
+
+# IDE and OS specific
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
