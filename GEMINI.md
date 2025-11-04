@@ -4,9 +4,9 @@
 
 ## 專案狀態
 
-*   **階段：** Phase 3 - 架構強化與功能偵錯
-*   **目前進度：** **日誌輸出已大幅優化，上傳器憑證管理更安全靈活。** 我們已完成對核心功能的錯誤處理強化，並基於真實的瀏覽器請求重構了按讚模組。然而，在實測中發現按讚 API 呼叫失敗。為解決此問題，已建立一個獨立的測試腳本 `like_tester.py` 用於精準偵錯。
-*   **交接點：** 專案暫停於執行 `like_tester.py` 之前。
+*   **階段：** Phase 4 - 雲端部署與自動化
+*   **目前進度：** **專案已進入雲端部署階段，正專注於 Zeabur 平台的適配與多進程服務管理。** 先前的本地功能開發與偵錯已全部完成。目前，我們正透過 `honcho` 與 `Dockerfile` 的組合，實現爬蟲、排程器與 `datasette` 網頁介面在雲端環境的並行運作。
+*   **交接點：** 專案工作在 `feature/zeabur-deployment` 分支上進行，目標是完成在 Zeabur 平台上的首次成功部署。
 
 ## 專案概要 (Spec)
 
@@ -85,6 +85,10 @@
     *   **問題:** 部署後，`scheduler.py` 因 `ImportError: cannot import name 'get_videos_to_upload_count'` 而崩潰。經查，這是因為 `database.py` 中的函式已重構，原函式被 `get_all_videos_to_upload` 取代。
     *   **修正:** 我們修改了 `scheduler.py`，將 `import` 的函式名稱更正為 `get_all_videos_to_upload`，並調整了相關邏輯，改為使用 `len()` 來獲取待上傳影片的數量，從而解決了啟動錯誤。
 
+13. **Datasette 競爭條件 (Race Condition)**
+    *   **問題:** 在使用 `Procfile` 啟動多個進程時，`datasette` 服務有時會因為資料庫檔案 `threads.db` 尚未被主程式創建而啟動失敗。
+    *   **修正:** 我們在 `Procfile` 中為 `datasette` 的啟動指令加上了 `--create` 旗標。此旗標確保如果資料庫檔案不存在，`datasette` 會自動創建一個空的資料庫檔案，從而解決了這個競爭條件問題，提高了服務啟動的穩定性。
+
 ## 交接手冊與 Todolist
 
 ### Phase 1: 核心功能開發 (已全部完成)
@@ -112,27 +116,22 @@
 - [x] **畫龍點睛:** 實作讀取 `config.json` 的高級排程邏輯，支援立即發布、預約發布與時間間隔。
 - [x] **安全加固:** 完善 `.gitignore`，並為 `client_secrets.json` 建立範本，確保敏感資訊絕不外洩。
 
-### Phase 3: 擴充與優化 (進行中)
+### Phase 3: 擴充與優化 (已全部完成)
 
-- [x] **錯誤處理強化:**
-    - [x] 為 `scraper.py` 增加了啟動時的 Cookie 有效性驗證。
-    - [x] 為 `scraper.py` 增加了處理空 API 回應的日誌警告。
-    - [x] 為 `downloader.py` 增加了最多 3 次的下載失敗重試機制。
+- [x] **錯誤處理強化:** 為 `scraper.py` 和 `downloader.py` 增加了更完善的錯誤處理與重試機制。
+- [x] **日誌輸出優化:** 大幅減少了不必要的日誌輸出，提升了日誌清晰度。
+- [x] **上傳器憑證管理:** 增強了 `request.token` 憑證的處理邏輯，使其在部署環境中更靈活、更安全。
+- [x] **修正按讚功能:** 透過獨立的測試腳本 `like_tester.py` 與瀏覽器日誌分析，成功定位並解決了 `fetch` API 呼叫失敗的問題。
+- [x] **容器化修正 (Docker):** 解決了 `apt-key` 棄用導致的 Docker build 失敗問題。
+- [x] **排程器修正 (Scheduler):** 修正了因模組重構導致的 `ImportError` 問題。
 
-- [x] **日誌輸出優化:**
-    - [x] 調整 `main.py` 和 `scheduler.py` 的日誌配置，將預設日誌等級設定為 `WARNING`，並明確抑制 `seleniumwire` 和 `webdriver_manager` 的 `INFO` 訊息，大幅減少了不必要的日誌輸出，提升了日誌清晰度。
+### Phase 4: 雲端部署與自動化 (進行中)
 
-- [x] **上傳器憑證管理:**
-    - [x] 在 `uploader.py` 中新增 `ensure_token_file_exists` 函式，用於檢查 `request.token` 檔案。若檔案不存在，則嘗試從 `YT_REQUEST` 環境變數讀取內容並創建該檔案。
-    - [x] 將此檢查整合到 `run_upload_task` 的開頭，確保憑證在執行上傳前準備就緒，增強了部署的靈活性和安全性。
-
-- [ ] **修正按讚功能 (日誌分析中):**
-    - [x] **重構:** 根據真實 `fetch` 請求重構了 `threads_client.py`。
-    *   **問題:** 遭遇 `TypeError: Failed to fetch`，疑似被瀏覽器安全策略阻止。
-    *   **對策:** 建立 `like_tester.py` 進行隔離偵錯。
-    *   **進展:** 成功修改 `like_tester.py`，在測試結束後自動將瀏覽器控制台日誌儲存到 `browser_console.log` 檔案中。
-    *   [!] **交接點:** 我們已經準備好執行 `like_tester.py` 來捕獲最關鍵的錯誤訊息。
-    *   [ ] **下一步 (交接任務):** 當你回來時，我們將執行 `uv run python like_tester.py --url "你提供的URL"`，然後**仔細分析新產生的 `browser_console.log` 檔案**，從中找出 `fetch` 失敗的根本原因。
-
+- [x] **架構重構:** 將資料庫初始化邏輯移至主程式入口，確保啟動順序穩定。
+- [x] **部署修正 (Datasette):** 為 `datasette` 指令加上 `--create` 旗標，解決了啟動時的競爭條件 (race condition) 問題。
+- [x] **多進程管理 (Honcho):** 引入 `honcho` 來管理 `Procfile`，實現在 Docker 環境中同時運行爬蟲、排程器與 `datasette` 網頁介面等多個服務。
+- [ ] **完成 Zeabur 平台部署:** 微調 `Dockerfile` 與 `Procfile` 設定，確保在 Zeabur 環境中所有服務都能穩定運行。
+- [ ] **設定環境變數:** 在 Zeabur 平台上安全地設定 `sessionid`、`YT_REQUEST`、`GEMINI_API_KEY` 等所有必要的環境變數。
+- [ ] **端對端測試 (雲端):** 在部署完成後，進行一次完整的端對端測試，驗證從爬取、下載、上傳到排程的整個流程在雲端環境中是否正常。
 - [ ] **增加多執行緒:** 研究為下載過程加入多執行緒，以加速大量影片的下載。
 - [ ] **AI 增強:** 評估 `Whisper` (語音轉文字), `OpenCV` (影片處理) 等 AI 相關函式庫，為未來增加 AI 功能做準備。
