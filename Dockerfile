@@ -45,8 +45,5 @@ RUN chown -R appuser:appuser /home/appuser
 # Switch to the non-root user
 USER appuser
 
-# Command to run the application, based on your Procfile
-# Command to run the application, based on your Procfile
-# CMD ["uv", "run", "python", "scheduler.py"]
-# Command to run the application, based on your Procfile
-# CMD ["uv", "run", "datasette", "threads_dlp.db", "--host", "0.0.0.0", "--port", "$PORT"]
+# Command to run the application using honcho
+CMD ["honcho", "start"]

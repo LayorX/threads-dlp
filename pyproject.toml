@@ -19,4 +19,5 @@ dependencies = [
     "schedule>=1.2.2",
     "datasette>=0.65.1",
     "datasette-auth-passwords>=1.1.1",
+    "honcho>=2.0.0",
 ]
