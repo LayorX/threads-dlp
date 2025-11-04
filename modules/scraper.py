@@ -50,7 +50,6 @@ def scrape_videos(url: str, scroll_count: int, like_threshold: int, download_thr
 
     service = ChromeService(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=chrome_options)
-
     scraped_videos = []
     processed_post_ids = set() # 用於在單次運行中避免重複解析同一個 post
     

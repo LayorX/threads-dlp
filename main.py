@@ -49,8 +49,12 @@ def run_download_task(
     核心下載任務邏輯。
     此函式被設計為可由外部腳本匯入和呼叫。
     """
-    logging.basicConfig(level=log_level, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
+    logging.basicConfig(level=log_level, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    # 特別將吵雜的函式庫的日誌等級也設定為 WARNING
+    if log_level != logging.DEBUG :
+        logging.getLogger('seleniumwire').setLevel(logging.WARNING)
+        logging.getLogger('webdriver_manager').setLevel(logging.WARNING)
     config = load_config()
 
     like_threshold = like_threshold_override if like_threshold_override is not None else config['like_threshold']
@@ -158,7 +162,8 @@ def main():
 
     args = parser.parse_args()
 
-    log_level = logging.INFO if args.debug else logging.WARNING
+    log_level = logging.DEBUG if args.debug else logging.INFO
+
     
     # 執行核心下載任務
     run_download_task(

@@ -18,6 +18,10 @@ def setup_logging():
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(log_formatter)
         root_logger.addHandler(console_handler)
+    
+    # 特別將吵雜的函式庫的日誌等級也設定為 WARNING
+    logging.getLogger('seleniumwire').setLevel(logging.WARNING)
+    logging.getLogger('webdriver_manager').setLevel(logging.WARNING)
 
 def download_job():
     """

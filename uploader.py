@@ -28,6 +28,8 @@ def setup_logging():
             pass
         console_handler.setFormatter(log_formatter)
         root_logger.addHandler(console_handler)
+    
+    
 
 def load_config() -> dict:
     """從環境變數和 config.json 載入設定，環境變數優先。"""
@@ -46,7 +48,7 @@ def load_config() -> dict:
     config['api_key'] = os.getenv('GEMINI_API_KEY', config.get('api_key'))
     
     # 路徑設定
-    config['youtube_uploader_path'] = os.getenv('YOUTUBE_UPLOADER_PATH', config.get('youtube_uploader_path', 'youtubeuploader.exe'))
+    config['youtube_uploader_path'] = os.getenv('YOUTUBE_UPLOADER_PATH', config.get('youtube_uploader_path', './youtubeuploader.exe'))
     
     # 排程邏輯
     config['is_publish_now'] = os.getenv('PUBLISH_NOW', str(config.get('is_publish_now', False))).lower() in ['true', '1', 't']
@@ -146,9 +148,41 @@ def upload_video(video_path: str, meta_path: str, config: dict):
         logging.error(f"An unexpected error occurred during upload: {e}")
         return False
 
+def ensure_token_file_exists():
+    """
+    檢查 'request.token' 檔案是否存在。如果不存在，則從 'YT_REQUEST' 環境變數讀取內容並寫入檔案。
+    這是為了支援將 token 作為 secret 儲存在部署環境中的常見模式。
+    """
+    token_path = "request.token"
+    if not os.path.exists(token_path):
+        logging.info(f"'{token_path}' not found. Attempting to create from environment variable 'YT_REQUEST'.")
+        token_data = os.getenv('YT_REQUEST')
+        
+        if token_data:
+            try:
+                with open(token_path, 'w', encoding='utf-8') as f:
+                    f.write(token_data)
+                logging.info(f"Successfully created '{token_path}' from environment variable.")
+            except IOError as e:
+                logging.error(f"Failed to write to '{token_path}': {e}")
+                # 如果無法寫入檔案，這是一個嚴重錯誤，應該阻止後續操作
+                raise
+        else:
+            # 如果檔案和環境變數都不存在，這是一個關鍵錯誤
+            message = "FATAL: 'request.token' not found and 'YT_REQUEST' environment variable is not set. Cannot proceed with upload."
+            logging.critical(message)
+            raise FileNotFoundError(message)
+
 def run_upload_task():
     """Core task for uploading videos."""
     setup_logging()
+    
+    try:
+        ensure_token_file_exists()
+    except Exception as e:
+        logging.error(f"Stopping upload task due to an error in token setup: {e}")
+        return
+
     config = load_config()
     init_db()
     videos_to_upload = get_all_videos_to_upload()
