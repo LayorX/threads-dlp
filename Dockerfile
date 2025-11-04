@@ -36,7 +36,7 @@ RUN apt-get update && apt-get install -y curl gnupg --no-install-recommends \
 RUN curl -L "https://github.com/porjo/youtubeuploader/releases/download/v1.25.5/youtubeuploader_1.25.5_linux_amd64.tar.gz" -o youtubeuploader.tar.gz \
     && tar -xzf youtubeuploader.tar.gz \
     && chmod +x youtubeuploader \
-    && mv youtubeuploader /usr/local/bin/ \
+    && mv youtubeuploader /home/appuser/ \
     && rm youtubeuploader.tar.gz
 
 # Copy Python environment from the builder stage
