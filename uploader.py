@@ -148,30 +148,35 @@ def upload_video(video_path: str, meta_path: str, config: dict):
         logging.error(f"An unexpected error occurred during upload: {e}")
         return False
 
-def ensure_token_file_exists():
+def _ensure_file_from_env(file_path: str, env_var: str):
+    """Helper function to ensure a file exists, creating it from an environment variable if not.
+    Raises FileNotFoundError if both the file and the environment variable are missing.
     """
-    檢查 'request.token' 檔案是否存在。如果不存在，則從 'YT_REQUEST' 環境變數讀取內容並寫入檔案。
-    這是為了支援將 token 作為 secret 儲存在部署環境中的常見模式。
-    """
-    token_path = "request.token"
-    if not os.path.exists(token_path):
-        logging.info(f"'{token_path}' not found. Attempting to create from environment variable 'YT_REQUEST'.")
-        token_data = os.getenv('YT_REQUEST')
+    if not os.path.exists(file_path):
+        logging.info(f"'{file_path}' not found. Attempting to create from environment variable '{env_var}'.")
+        file_data = os.getenv(env_var)
         
-        if token_data:
+        if file_data:
             try:
-                with open(token_path, 'w', encoding='utf-8') as f:
-                    f.write(token_data)
-                logging.info(f"Successfully created '{token_path}' from environment variable.")
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(file_data)
+                logging.info(f"Successfully created '{file_path}' from environment variable.")
             except IOError as e:
-                logging.error(f"Failed to write to '{token_path}': {e}")
-                # 如果無法寫入檔案，這是一個嚴重錯誤，應該阻止後續操作
-                raise
+                logging.error(f"Failed to write to '{file_path}': {e}")
+                raise  # Re-raise the exception as this is a critical failure
         else:
-            # 如果檔案和環境變數都不存在，這是一個關鍵錯誤
-            message = "FATAL: 'request.token' not found and 'YT_REQUEST' environment variable is not set. Cannot proceed with upload."
+            message = f"FATAL: '{file_path}' not found and '{env_var}' environment variable is not set. Cannot proceed."
             logging.critical(message)
             raise FileNotFoundError(message)
+
+def ensure_token_file_exists():
+    """
+    Checks for 'request.token' and 'client_secrets.json'. If they don't exist,
+    creates them from their respective environment variables.
+    This supports storing secrets in the deployment environment.
+    """
+    _ensure_file_from_env("request.token", "YT_REQUEST")
+    _ensure_file_from_env("client_secrets.json", "YT_CLIENT_SECRETS")
 
 def run_upload_task():
     """Core task for uploading videos."""
