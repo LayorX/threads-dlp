@@ -47,5 +47,5 @@ RUN chown -R appuser:appuser /home/appuser
 # Switch to the non-root user
 USER appuser
 
-# Command to run the application using honcho as a python module
-CMD ["python", "-m", "honcho.cli", "start"]
+# Command to run the application using the project's runner 'uv run'
+CMD ["uv", "run", "honcho", "start"]
