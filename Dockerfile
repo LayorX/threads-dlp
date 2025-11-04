@@ -32,6 +32,13 @@ RUN apt-get update && apt-get install -y curl gnupg --no-install-recommends \
     && apt-get install -y google-chrome-stable --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
+# Download and install the Linux version of youtubeuploader
+RUN curl -L "https://github.com/porjo/youtubeuploader/releases/download/v1.25.5/youtubeuploader_1.25.5_linux_amd64.tar.gz" -o youtubeuploader.tar.gz \
+    && tar -xzf youtubeuploader.tar.gz \
+    && chmod +x youtubeuploader \
+    && mv youtubeuploader /usr/local/bin/ \
+    && rm youtubeuploader.tar.gz
+
 # Copy Python environment from the builder stage
 COPY --from=builder /usr/local/lib/python3.12/site-packages/ /usr/local/lib/python3.12/site-packages/
 

@@ -48,7 +48,7 @@ def load_config() -> dict:
     config['api_key'] = os.getenv('GEMINI_API_KEY', config.get('api_key'))
     
     # 路徑設定
-    config['youtube_uploader_path'] = os.getenv('YOUTUBE_UPLOADER_PATH', config.get('youtube_uploader_path', './youtubeuploader.exe'))
+    config['youtube_uploader_path'] = os.getenv('YOUTUBE_UPLOADER_PATH', config.get('youtube_uploader_path', 'youtubeuploader'))
     
     # 排程邏輯
     config['is_publish_now'] = os.getenv('PUBLISH_NOW', str(config.get('is_publish_now', False))).lower() in ['true', '1', 't']
