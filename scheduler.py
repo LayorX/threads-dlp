@@ -51,7 +51,6 @@ def upload_job():
     """
     logging.info("=== 開始每日上傳檢查任務 ===")
     try:
-        init_db()
         videos_to_upload = get_all_videos_to_upload()
         video_count = len(videos_to_upload)
         

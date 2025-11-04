@@ -60,7 +60,6 @@ def run_download_task(
     like_threshold = like_threshold_override if like_threshold_override is not None else config['like_threshold']
     download_threshold = download_threshold_override if download_threshold_override is not None else config['download_threshold']
 
-    init_db()
     existing_video_ids = get_all_existing_video_ids()
     liked_post_ids = get_all_liked_post_ids()
     logging.info(f"[DB] 資料庫中已存在 {len(existing_video_ids)} 筆影片紀錄，{len(liked_post_ids)} 筆按讚紀錄。")
@@ -164,7 +163,9 @@ def main():
 
     log_level = logging.DEBUG if args.debug else logging.INFO
 
-    
+    # 在執行任何任務前，先初始化資料庫
+    init_db()
+
     # 執行核心下載任務
     run_download_task(
         target_username=args.target,
