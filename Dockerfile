@@ -34,7 +34,9 @@ RUN apt-get update && apt-get install -y curl gnupg --no-install-recommends \
 
 # Copy Python environment from the builder stage
 COPY --from=builder /usr/local/lib/python3.12/site-packages/ /usr/local/lib/python3.12/site-packages/
-COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
+
+# Copy all executables from the builder stage's bin directory (includes uv, honcho, etc.)
+COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
 # Copy the rest of the application code
 COPY . .

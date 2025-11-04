@@ -89,6 +89,11 @@
     *   **問題:** 在使用 `Procfile` 啟動多個進程時，`datasette` 服務有時會因為資料庫檔案 `threads.db` 尚未被主程式創建而啟動失敗。
     *   **修正:** 我們在 `Procfile` 中為 `datasette` 的啟動指令加上了 `--create` 旗標。此旗標確保如果資料庫檔案不存在，`datasette` 會自動創建一個空的資料庫檔案，從而解決了這個競爭條件問題，提高了服務啟動的穩定性。
 
+14. **Docker 執行階段錯誤 (`honcho: not found`)**
+    *   **問題:** 在 Zeabur 平台部署時，容器啟動失敗，日誌顯示 `exec: "honcho": executable file not found in $PATH`。
+    *   **分析:** 這個問題源於我們使用的 Docker 多階段建置 (`multi-stage build`)。在 `builder` 階段，`honcho` 作為 Python 依賴被正確安裝，但它的可執行檔位於 `/usr/local/bin/`。在 `runtime` 階段，我們只從 `builder` 複製了 Python 的函式庫 (`site-packages`)，卻遺漏了包含 `honcho` 在內的可執行檔。
+    *   **修正:** 我們修改了 `Dockerfile`，將 `COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv` 指令變更為 `COPY --from=builder /usr/local/bin/ /usr/local/bin/`。這個改動確保了 `builder` 階段安裝的所有指令（`uv`, `honcho`, `datasette` 等）都被完整地複製到最終的運行環境中，從而根除了此問題。
+
 ## 交接手冊與 Todolist
 
 ### Phase 1: 核心功能開發 (已全部完成)
@@ -130,6 +135,7 @@
 - [x] **架構重構:** 將資料庫初始化邏輯移至主程式入口，確保啟動順序穩定。
 - [x] **部署修正 (Datasette):** 為 `datasette` 指令加上 `--create` 旗標，解決了啟動時的競爭條件 (race condition) 問題。
 - [x] **多進程管理 (Honcho):** 引入 `honcho` 來管理 `Procfile`，實現在 Docker 環境中同時運行爬蟲、排程器與 `datasette` 網頁介面等多個服務。
+- [x] **部署修正 (Dockerfile):** 修正了多階段建置中，因未完整複製可執行檔而導致的 `honcho not found` 執行階段錯誤。
 - [ ] **完成 Zeabur 平台部署:** 微調 `Dockerfile` 與 `Procfile` 設定，確保在 Zeabur 環境中所有服務都能穩定運行。
 - [ ] **設定環境變數:** 在 Zeabur 平台上安全地設定 `sessionid`、`YT_REQUEST`、`GEMINI_API_KEY` 等所有必要的環境變數。
 - [ ] **端對端測試 (雲端):** 在部署完成後，進行一次完整的端對端測試，驗證從爬取、下載、上傳到排程的整個流程在雲端環境中是否正常。
