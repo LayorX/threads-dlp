@@ -94,6 +94,11 @@
     *   **分析:** 這個問題源於我們使用的 Docker 多階段建置 (`multi-stage build`)。在 `builder` 階段，`honcho` 作為 Python 依賴被正確安裝，但它的可執行檔位於 `/usr/local/bin/`。在 `runtime` 階段，我們只從 `builder` 複製了 Python 的函式庫 (`site-packages`)，卻遺漏了包含 `honcho` 在內的可執行檔。
     *   **修正:** 我們修改了 `Dockerfile`，將 `COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv` 指令變更為 `COPY --from=builder /usr/local/bin/ /usr/local/bin/`。這個改動確保了 `builder` 階段安裝的所有指令（`uv`, `honcho`, `datasette` 等）都被完整地複製到最終的運行環境中，從而根除了此問題。
 
+15. **執行階段錯誤 (平台不相容)**
+    *   **問題:** 在 Linux 容器中執行上傳腳本時，出現 `[Errno 13] Permission denied: './youtubeuploader.exe'` 錯誤。
+    *   **分析:** 應用程式最初在 Windows 環境開發，因此依賴了 Windows 的可執行檔 `youtubeuploader.exe`。該檔案與 Docker 容器的 Linux 環境完全不相容，導致作業系統拒絕執行。
+    *   **修正:** 我們採用了務實的「二進位檔案替換」方案。修改 `Dockerfile`，在建置階段從 `youtubeuploader` 的官方 GitHub Release 頁面下載其 Linux (amd64) 版本。同時，修改 `uploader.py`，將預設呼叫的執行檔名稱從 `youtubeuploader.exe` 改為 `youtubeuploader`，使其能正確地在系統 `PATH` 中找到並執行新的 Linux 版本。此方法在最小化程式碼變動的前提下，解決了跨平台部署的關鍵障礙。
+
 ## 交接手冊與 Todolist
 
 ### Phase 1: 核心功能開發 (已全部完成)
@@ -136,6 +141,7 @@
 - [x] **部署修正 (Datasette):** 為 `datasette` 指令加上 `--create` 旗標，解決了啟動時的競爭條件 (race condition) 問題。
 - [x] **多進程管理 (Honcho):** 引入 `honcho` 來管理 `Procfile`，實現在 Docker 環境中同時運行爬蟲、排程器與 `datasette` 網頁介面等多個服務。
 - [x] **部署修正 (Dockerfile):** 修正了多階段建置中，因未完整複製可執行檔而導致的 `honcho not found` 執行階段錯誤。
+- [x] **部署修正 (Uploader):** 修正了因平台不相容（在 Linux 執行 .exe）導致的上傳器執行失敗問題，改為在 Docker build 階段自動安裝其 Linux 版本。
 - [ ] **完成 Zeabur 平台部署:** 微調 `Dockerfile` 與 `Procfile` 設定，確保在 Zeabur 環境中所有服務都能穩定運行。
 - [ ] **設定環境變數:** 在 Zeabur 平台上安全地設定 `sessionid`、`YT_REQUEST`、`GEMINI_API_KEY` 等所有必要的環境變數。
 - [ ] **端對端測試 (雲端):** 在部署完成後，進行一次完整的端對端測試，驗證從爬取、下載、上傳到排程的整個流程在雲端環境中是否正常。

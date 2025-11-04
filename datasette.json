@@ -4,7 +4,7 @@
       "users": [
         {
           "username": "admin",
-          "password_hash": "pbkdf2_sha256$480000$e66ffa55ad0df24f1c472af94fa8f90a$BACOxCVm49EbbgLfrMhgY3CT1242hcbZtIt2tRzAXak="
+          "password_hash": "pbkdf2_sha256$480000$0b973bbe7cb8db3ede81ba01ce846659$FieYDLD+CwfdSZYSp6LilgnOXbIK2sOxZ62qcpbAvtY="
         }
       ]
     }
