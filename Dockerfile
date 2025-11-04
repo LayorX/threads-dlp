@@ -44,6 +44,9 @@ COPY . .
 # Change ownership to the non-root user
 RUN chown -R appuser:appuser /home/appuser
 
+# Grant execute permissions to youtubeuploader
+RUN chmod +x /home/appuser/youtubeuploader
+
 # Switch to the non-root user
 USER appuser
 
