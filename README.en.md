@@ -4,26 +4,32 @@
 
 ---
 
-A command-line tool for downloading videos from Threads.net.
+A command-line tool designed for downloading videos from Threads.net. It integrates a full suite of features including scraping, downloading, database management, AI-powered metadata generation, automated YouTube uploading, and cloud deployment.
 
-It doesn't rely on the official API or brittle HTML parsing. Instead, it uses **cookie-based authentication** to log in and **intelligently intercepts network traffic** to accurately capture videos. Finally, it calls the powerful **`yt-dlp`** engine to handle the download. This approach ensures stable and efficient operation in a dynamic, login-required web environment.
+It doesn't rely on the official API or brittle HTML parsing. Instead, it uses **cookie-based authentication** to log in and **intelligently intercepts network traffic** to accurately capture videos. This approach ensures stable and efficient operation in a dynamic, login-required web environment.
+
+The entire project has been fully containerized and configured for automated deployment on the **Zeabur** platform.
 
 ## ✨ Features
 
 - **Secure Cookie Authentication**: No need to enter your username and password. Uses your browser's session cookie for secure login, protecting your account privacy.
 - **Intelligent Network Sniffing**: Unlike traditional HTML scrapers, this tool directly analyzes network traffic to accurately capture video resources, resulting in a higher success rate.
-- **Highly Configurable**: Freely specify the target user, the number of page scrolls (scraping depth), and the video storage location.
-- **Stable and Reliable**: Built upon two mature open-source projects: `Selenium-Wire` and `yt-dlp`.
-- **Standardized Environment**: Uses `uv` for package management to ensure a consistent execution environment on any machine.
+- **Multi-Mode Scraping**: Supports scraping from a specific user's profile, keyword search results, or your personal home feed.
+- **Automated Uploading**: Integrates with `youtubeuploader` to automatically upload downloaded videos to YouTube.
+- **AI Smart Tags**: Uses the Google Gemini API to automatically generate titles, descriptions, and tags for videos.
+- **Scheduled Publishing**: Supports multiple YouTube publishing strategies, including immediate, scheduled, and interval-based releases.
+- **Database Management**: Uses SQLite to store video metadata, preventing duplicate downloads.
+- **Web Dashboard**: Integrates `Datasette` to provide a web interface for browsing and querying the data stored in SQLite.
+- **Cloud-Native**: Comes with a complete `Dockerfile` and `Procfile` for one-click deployment to container-supporting cloud platforms like [Zeabur](https://zeabur.com/).
 
-## 🚀 Installation Guide
+## 🚀 Local Quick Start
 
 **Prerequisites:**
-- [Python 3.10+](https://www.python.org/downloads/) installed
+- [Python 3.12+](https://www.python.org/downloads/) installed
 - [Google Chrome](https://www.google.com/chrome/) installed
 - [Git](https://git-scm.com/downloads/) installed
 
-**Steps:**
+**Installation Steps:**
 
 1.  **Clone the Project**
     ```bash
@@ -31,8 +37,8 @@ It doesn't rely on the official API or brittle HTML parsing. Instead, it uses **
     cd threads-dlp
     ```
 
-2.  **Install `uv` (if not already installed)**
-    `uv` is an extremely fast Python package installer and resolver.
+2.  **Install `uv`**
+    `uv` is an extremely fast Python package manager.
     ```bash
     # Windows (PowerShell)
     irm https://astral.sh/uv/install.ps1 | iex
@@ -41,119 +47,112 @@ It doesn't rely on the official API or brittle HTML parsing. Instead, it uses **
     ```
 
 3.  **Create Virtual Environment and Sync Dependencies**
-    This command will automatically create a `.venv` virtual environment and install all the necessary packages defined in `pyproject.toml`.
     ```bash
     uv sync
     ```
 
-## ⚙️ Configuration
+4.  **Set Up Environment Variables (`.env` file)**
+    In the project root directory, create a file named `.env` and fill in the essential variables for local execution:
+    ```env
+    # Required: The sessionid cookie from Threads
+    THREADS_SESSION_COOKIE="your_sessionid_here"
 
-This tool requires your Threads session cookie to log in. This method is secure and your password will not be exposed.
+    # --- The following are for the auto-upload feature (optional) ---
 
-### 1. How to Get Your Cookie
+    # Required: Google Gemini API Key
+    GEMINI_API_KEY="your_gemini_api_key_here"
 
-1.  In your **Chrome** browser, log in to your Threads account as usual.
-2.  After logging in, stay on any Threads page and press the `F12` key to open the "Developer Tools".
-3.  In the Developer Tools panel, find and click on the `Application` tab.
-4.  In the left-hand menu, under `Storage` -> `Cookies`, click on `https://www.threads.net`.
-5.  A list will appear on the right. Find the item where the `Name` is **`sessionid`**.
-6.  Click on the `sessionid` row, and a long string of text will be displayed in the `Cookie Value` field below. **Completely copy** this entire string.
+    # Optional: Paste the content of client_secrets.json as a single line
+    YT_CLIENT_SECRETS='{"web":{"client_id":"...", "client_secret":"...", ...}}'
 
-### 2. Create the `.env` File
-
-1.  In the project's root directory (`threads-dlp`), manually create a new text file.
-2.  Rename the file to `.env` (note the dot at the beginning).
-3.  Open the `.env` file with a text editor and write only the following line, replacing `your_cookie_value` with the long string you just copied:
+    # Optional: Paste the content of request.token as a single line
+    YT_REQUEST='{"token": "...", "refresh_token": "...", ...}'
     ```
-    THREADS_SESSION_COOKIE="your_cookie_value"
-    ```
-4.  Save and close the file. Your configuration is complete!
+    > **Tip:** `YT_CLIENT_SECRETS` and `YT_REQUEST` are primarily designed for cloud deployment. For local development, you can simply place the `client_secrets.json` and `request.token` files in the project's root directory.
 
-## Usage
+## 📖 Local Usage
 
-1.  **Set up the environment:**
-    ```bash
-    # Install uv (if you haven't already)
-    pip install uv
+Make sure you have activated the virtual environment (`.venv\Scripts\activate`).
 
-    # Create a virtual environment
-    uv venv
+**Mode 1: Download Videos from a Specific User**
+```bash
+# Download only
+uv run python main.py zuck
 
-    # Activate the virtual environment (Windows)
-    .venv\Scripts\activate
-
-    # Install dependencies
-    uv sync
-    ```
-
-2.  **Create the `.env` file:**
-    - In the project root, create a file named `.env`.
-    - Add your Threads session cookie to it:
-      ```
-      THREADS_SESSION_COOKIE="your_session_id_string_here"
-      ```
-
-3.  **Run the downloader:**
-
-    - **Mode 1: Target a specific user**
-      ```bash
-      uv run python main.py zuck
-      ```
-
-    - **Mode 2: Search for a keyword**
-      ```bash
-      uv run python main.py --search "keyword here"
-      ```
-
-    - **Mode 3: Scrape the default home feed**
-      ```bash
-      uv run python main.py
-      ```
-
-4.  **(Optional) Run downloader and uploader sequentially:**
-    - Add the `--upload` flag to automatically trigger the uploader after the download is complete.
-      ```bash
-      uv run python main.py zuck --upload
-      ```
-
-5.  **(Optional) Run the uploader independently:**
-    - To only upload videos that are already in the database but not yet uploaded.
-      ```bash
-      uv run python uploader.py
-      ```
-
-## YouTube API Setup
-
-Talking to the Youtube API requires oauth2 authentication. As such, you must:
-
-1. Create an account on the [Google Developers Console](https://console.developers.google.com)
-1. Create a new project for this app
-1. Enable the Youtube API (APIs & Services -> Enable APIs and Services -> Click 'ENABLE APIS AND SERVICES' top right). Select 'YouTube Data API v3'
-1. Create OAuth consent screen (APIs & Services -> OAuth Consent Screen)
-   - Add a test user in "Audience -> Test users". This can be any Google User account but it should correspond with the Youtube account where videos will be uploaded.
-1. Create Credentials (APIs & Services -> Credentials -> click 'CREATE CREDENTIALS'), select 'OAuth client ID', select 'Web application'
-   - Add an 'Authorized redirect URI' of 'http://localhost:8080/oauth2callback'
-1. Download the client secrets JSON file (click download icon next to newly created client ID) and save it as file `client_secrets.json` in the same directory as the utility e.g.
-
-```json
-{
-  "web": {
-    "client_id": "xxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com",
-    "project_id": "youtubeuploader-yyyyy",
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token",
-    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_secret": "xxxxxxxxxxxxxxxxxxxx",
-    "redirect_uris": [
-      "http://localhost:8080/oauth2callback"
-    ]
-  }
-}
+# Download and then auto-upload
+uv run python main.py zuck --upload
 ```
 
-**NOTE 1** Google will apply 'private' status on videos uploaded to newly created projects - from [Google's Announcement](https://developers.google.com/youtube/v3/revision_history#july-28,-2020):
+**Mode 2: Download Videos from a Keyword Search**
+```bash
+uv run python main.py --search "your_keyword_here" --upload
+```
 
-> All videos uploaded via the videos.insert endpoint from unverified API projects created after 28 July 2020 will be restricted to private viewing mode. To lift this restriction, each project must undergo an audit to verify compliance with the Terms of Service.
+**Mode 3: Download Videos from Your Home Feed**
+```bash
+uv run python main.py --upload
+```
+
+**Mode 4: Run Uploader Only**
+Execute the uploader independently to upload videos that are in the database but not yet published.
+```bash
+uv run python uploader.py
+```
+
+**Mode 5: View the Database**
+Start the Datasette web interface to view the database content at `http://127.0.0.1:8001/`.
+```bash
+uv run datasette threads_dlp.db
+```
+
+---
+
+## ☁️ Zeabur Cloud Deployment Guide
+
+This project is fully optimized for Zeabur, enabling one-click deployment and automated operation.
+
+### Step 1: Fork the Project
+
+Click the **Fork** button in the upper-right corner of this GitHub repository to copy this project to your own GitHub account.
+
+### Step 2: Create a Project on Zeabur
+
+1.  Log in to the [Zeabur](https://zeabur.com/) console.
+2.  Create a new project and authorize Zeabur to access your GitHub repositories.
+3.  Select the `threads-dlp` repository you just forked to deploy.
+
+### Step 3: Service Configuration and Start Commands
+
+Zeabur will automatically detect the `Dockerfile` and deploy it as a service. It uses the `Procfile` to understand how to launch the different processes:
+
+- **`web`**: Runs the `Datasette` service. Zeabur automatically injects the `PORT` environment variable and assigns a public domain name to it.
+- **`worker`**: Runs the main scraper scheduler (`scheduler.py`). This is a background service that periodically executes scraping tasks according to the schedule.
+
+You do not need to manually configure the start commands; Zeabur handles this automatically.
+
+### Step 4: Configure Environment Variables
+
+This is the most critical step of the deployment. In your Zeabur project's **Variables** tab, add all of the following environment variables:
+
+| Variable Name             | Description                                                                                                     | How to Obtain                                                                                                                                                                                                              |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `THREADS_SESSION_COOKIE`  | **(Required)** The `sessionid` cookie for logging into Threads.                                                    | Refer to the "Get Your Threads Cookie" guide in the "Local Quick Start" section of this document.                                                                                                                    |
+| `GEMINI_API_KEY`          | **(Required)** Google Gemini API key, used for generating video titles and descriptions.                           | Obtain it from [Google AI Studio](https://aistudio.google.com/).                                                                                                                                                         |
+| `YT_CLIENT_SECRETS`       | **(Required)** The content of the `client_secrets.json` file for the YouTube API.                                     | Follow the instructions at the top of the `uploader.py` file to download `client_secrets.json`, then **copy its entire content as a single line** and paste it here.                                                  |
+| `YT_REQUEST`              | **(Required)** The content of the `request.token` file for the YouTube API.                                         | After successfully running `--upload` **locally** and completing the browser authorization, a `request.token` file will be generated. **Copy its entire content as a single line** and paste it here.                 |
+| `ADMIN_PASSWORD_HASH`     | **(Optional)** The password hash for the Datasette web dashboard.                                                  | If password protection is needed, you can generate a hash using the `datasette-auth-passwords` tool. If left empty, the dashboard will not be accessible for login from the public internet. Default value is `password!`. |
+| `UPLOAD_THRESHOLD`        | (Optional) Triggers an upload cycle when the number of videos pending upload exceeds this threshold. Default is `5`. | -                                                                                                                                                                                                                          |
+| `UPLOAD_TIME_UTC`         | (Optional) The fixed time (UTC) to run the upload task daily. E.g., `10:00`.                                      | -                                                                                                                                                                                                                          |
+| `THREADS_SCROLL_COUNT`    | (Optional) The number of times to simulate scrolling down the page during each scrape. A larger number means a deeper scrape. Default is `5`. | -                                                                                                                                                                                                                          |
+| `PUBLISH_NOW`             | (Optional) Whether to set the first video in the upload queue for immediate publishing. `true` or `false`. Default is `true`. | -                                                                                                                                                                                                                          |
+| `PUBLISH_START_FROM_HOURS`| (Optional) If `PUBLISH_NOW` is `false`, the first video will be published after N hours. Default is `0`.             | -                                                                                                                                                                                                                          |
+| `PUBLISH_INTERVAL_HOURS`  | (Optional) The time interval (in hours) between video publications in the upload queue. Default is `4`.            | -                                                                                                                                                                                                                          |
+
+### Step 5: Complete the Deployment
+
+After saving all environment variables, Zeabur will automatically redeploy your service. Once successful:
+- You can access your Datasette dashboard via the `*.zeabur.app` URL provided by Zeabur.
+- The `worker` service will run automatically in the background, periodically scraping, downloading, and uploading videos according to your schedule settings.
 
 ## ⚠️ Disclaimer
 
