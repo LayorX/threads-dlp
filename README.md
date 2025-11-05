@@ -1,6 +1,12 @@
 # threads-dlp
 
+<div align="center">
+<img src="./images/banner.jpg" alt="Project Banner" style="border-radius: 10px; margin-top: 10px; margin-bottom: 10px;width: 500px; height: 250px;">
+
 [English Version](./README.en.md)
+</div>
+
+
 
 ---
 
@@ -21,6 +27,21 @@
 - **資料庫管理**：使用 SQLite 儲存影片元數據，避免重複下載。
 - **網頁儀表板**：整合 `Datasette`，提供一個網頁介面來瀏覽與查詢儲存在 SQLite 中的資料。
 - **雲端原生**：提供完整的 `Dockerfile` 與 `Procfile`，可一鍵部署至 [Zeabur](https://zeabur.com/) 等支援容器的雲端平台。
+
+## 核心依賴
+
+### YouTube Uploader
+
+本專案的自動上傳功能，是透過呼叫由 [porjo](https://github.com/porjo) 開發的強大開源工具 [youtubeuploader](https://github.com/porjo/youtubeuploader) 來實現的。
+
+#### 跨平台策略 (Windows vs. Linux)
+
+為了兼顧本地開發的便利性與雲端部署的相容性，我們採用了以下策略：
+
+- **Windows (本地開發):** 專案中直接包含了 `youtubeuploader.exe` 執行檔。當您在 Windows 環境下執行 `uploader.py` 時，程式會預設使用此檔案，讓您無需額外設定即可在本地測試上傳功能。
+- **Linux (雲端部署):** `Dockerfile` 被設定為在建置 Docker 映像時，自動從 `youtubeuploader` 的官方發布頁面下載最新的 **Linux (amd64)** 版本。這確保了程式在 Zeabur 等基於 Linux 的雲端環境中能夠正確執行上傳命令。
+
+這種方式確保了無論您在何種平台進行開發或部署，都能無縫使用上傳功能。
 
 ## 🚀 本地端快速開始
 

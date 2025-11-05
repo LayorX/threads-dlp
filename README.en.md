@@ -1,6 +1,10 @@
 # threads-dlp
 
+<div align="center">
+<img src="./images/banner.jpg" alt="Project Banner" style="border-radius: 10px; margin-top: 10px; margin-bottom: 10px;width: 500px; height: 250px;">
+
 [中文說明](./README.md)
+</div>
 
 ---
 
@@ -21,6 +25,21 @@ The entire project has been fully containerized and configured for automated dep
 - **Database Management**: Uses SQLite to store video metadata, preventing duplicate downloads.
 - **Web Dashboard**: Integrates `Datasette` to provide a web interface for browsing and querying the data stored in SQLite.
 - **Cloud-Native**: Comes with a complete `Dockerfile` and `Procfile` for one-click deployment to container-supporting cloud platforms like [Zeabur](https://zeabur.com/).
+
+## Core Dependencies
+
+### YouTube Uploader
+
+The automated upload functionality of this project is powered by the excellent open-source tool [youtubeuploader](https://github.com/porjo/youtubeuploader), developed by [porjo](https://github.com/porjo).
+
+#### Cross-Platform Strategy (Windows vs. Linux)
+
+To balance the convenience of local development with the compatibility requirements of cloud deployment, we have adopted the following strategy:
+
+- **Windows (Local Development):** The project repository directly includes the `youtubeuploader.exe` executable. When you run `uploader.py` in a Windows environment, it defaults to using this file, allowing you to test the upload functionality locally without extra setup.
+- **Linux (Cloud Deployment):** The `Dockerfile` is configured to automatically download the latest **Linux (amd64)** version from the official `youtubeuploader` releases page during the Docker image build process. This ensures that the upload command executes correctly in Linux-based cloud environments like Zeabur.
+
+This approach guarantees seamless use of the upload feature, whether you are developing locally or deploying to the cloud.
 
 ## 🚀 Local Quick Start
 
