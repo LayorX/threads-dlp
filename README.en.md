@@ -149,7 +149,19 @@ Zeabur will automatically detect the `Dockerfile` and deploy it as a service. It
 
 You do not need to manually configure the start commands; Zeabur handles this automatically.
 
-### Step 4: Configure Environment Variables
+### Step 4: Configure Persistent Volumes (Very Important)
+
+To ensure your database (`threads_dlp.db`) and downloaded videos are not lost when the service restarts, and to avoid unnecessary memory charges from using the ephemeral filesystem, you must mount a persistent volume for your storage paths.
+
+1.  In your Zeabur project page, click on the **Volumes** tab.
+2.  Click **Create Volume**.
+3.  Create two volumes and mount them to the following paths respectively:
+    *   **Mount Path 1:** `/home/appuser/db` (for storing the database file)
+    *   **Mount Path 2:** `/home/appuser/downloads` (for storing downloaded videos)
+
+> **Warning:** If you skip this step, all your downloaded videos and database records will be **permanently lost** every time the service restarts or redeploys.
+
+### Step 5: Configure Environment Variables
 
 This is the most critical step of the deployment. In your Zeabur project's **Variables** tab, add all of the following environment variables:
 

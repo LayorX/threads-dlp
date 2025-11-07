@@ -77,3 +77,8 @@ upload_log.txt
 debug_graphql.json
 debug_page_source.html
 .gemini/
+
+# Database directory
+/db/*.db
+/db/*.log
+!/db/.keep

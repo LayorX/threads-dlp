@@ -99,6 +99,15 @@
     *   **分析:** 應用程式最初在 Windows 環境開發，因此依賴了 Windows 的可執行檔 `youtubeuploader.exe`。該檔案與 Docker 容器的 Linux 環境完全不相容，導致作業系統拒絕執行。
     *   **修正:** 我們採用了務實的「二進位檔案替換」方案。修改 `Dockerfile`，在建置階段從 `youtubeuploader` 的官方 GitHub Release 頁面下載其 Linux (amd64) 版本。同時，修改 `uploader.py`，將預設呼叫的執行檔名稱從 `youtubeuploader.exe` 改為 `youtubeuploader`，使其能正確地在系統 `PATH` 中找到並執行新的 Linux 版本。此方法在最小化程式碼變動的前提下，解決了跨平台部署的關鍵障礙。
 
+16. **雲端部署的資料持久化**
+    *   **問題:** 雲端平台 (如 Zeabur) 的檔案系統通常是暫時性的，每次重新部署或重啟服務時，所有未被永久儲存的檔案（如下載的影片和 SQLite 資料庫）都會遺失。
+    *   **分析:** 為了確保資料的持久性並降低因暫存檔案系統可能產生的記憶體費用，必須將資料庫和下載目錄與平台的永久性磁碟區 (Volume) 連結。
+    *   **修正:** 我們執行了以下架構調整：
+        1.  建立了一個新的 `db/` 資料夾來專門存放資料庫檔案。
+        2.  修改了 `modules/database.py`, `view_db.py` 和 `Procfile`，將所有對 `threads_dlp.db` 的引用路徑更新為 `db/threads_dlp.db`。
+        3.  更新了 `.gitignore` 以正確忽略 `db/` 資料夾內的資料庫檔案，同時確保該資料夾能被 Git 追蹤。
+        4.  更新了 `README.md` 和 `README.en.md`，新增了在 Zeabur 上設定磁碟區掛載 (`/home/appuser/db` 和 `/home/appuser/downloads`) 的詳細教學，指導使用者完成此關鍵步驟。
+
 ## 交接手冊與 Todolist
 
 ### Phase 1: 核心功能開發 (已全部完成)
@@ -142,6 +151,7 @@
 - [x] **多進程管理 (Honcho):** 引入 `honcho` 來管理 `Procfile`，實現在 Docker 環境中同時運行爬蟲、排程器與 `datasette` 網頁介面等多個服務。
 - [x] **部署修正 (Dockerfile):** 修正了多階段建置中，因未完整複製可執行檔而導致的 `honcho not found` 執行階段錯誤。
 - [x] **部署修正 (Uploader):** 修正了因平台不相容（在 Linux 執行 .exe）導致的上傳器執行失敗問題，改為在 Docker build 階段自動安裝其 Linux 版本。
+- [x] **資料庫路徑重構:** 為了適應雲端部署的永久性磁碟掛載，建立了 `db` 資料夾，並將所有資料庫檔案的路徑參考都更新至此，同時更新了說明文件。
 - [ ] **完成 Zeabur 平台部署:** 微調 `Dockerfile` 與 `Procfile` 設定，確保在 Zeabur 環境中所有服務都能穩定運行。
 - [ ] **設定環境變數:** 在 Zeabur 平台上安全地設定 `sessionid`、`YT_REQUEST`、`GEMINI_API_KEY` 等所有必要的環境變數。
 - [ ] **端對端測試 (雲端):** 在部署完成後，進行一次完整的端對端測試，驗證從爬取、下載、上傳到排程的整個流程在雲端環境中是否正常。

@@ -4,7 +4,7 @@ import sqlite3
 import os
 from tabulate import tabulate
 
-DB_FILE = "threads_dlp.db"
+DB_FILE = "db/threads_dlp.db"
 
 def view_database():
     """連接到 SQLite 資料庫並以表格形式印出 `videos` 表的內容。"""

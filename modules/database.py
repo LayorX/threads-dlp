@@ -3,7 +3,7 @@
 import sqlite3
 from datetime import datetime
 
-DB_FILE = "threads_dlp.db"
+DB_FILE = "db/threads_dlp.db"
 
 def get_db_connection():
     """建立並返回一個資料庫連接，並設定較長的超時時間。"""
