@@ -91,38 +91,166 @@ This approach guarantees seamless use of the upload feature, whether you are dev
 
 ## 📖 Local Usage
 
-Make sure you have activated the virtual environment (`.venv\Scripts\activate`).
+Make sure you have activated the virtual environment (`.venv\Scripts\activate` on Windows). The project consists of two main executable scripts: `main.py` (the primary downloader) and `uploader.py` (the standalone uploader).
 
-**Mode 1: Download Videos from a Specific User**
+### `main.py` (Downloader)
+
+This is the main entry point for scraping and downloading videos. It can also trigger the upload process upon completion.
+
+#### Arguments
+
+| Short | Long | Description | Default |
+| :--- | :--- | :--- | :--- |
+| `-t` | `--target` | Specify the Threads username to scrape. | `None` (scrapes the home feed if omitted) |
+| `-s` | `--search` | Scrape based on a search query instead of a user. | `None` |
+| `-r` | `--scroll` | Number of times to scroll down the page for more content. | `3` |
+| `-o` | `--output` | Specify the directory to save downloaded videos. | `downloads` |
+| `-u` | `--upload` | Automatically execute the uploader after download tasks are complete. | `False` |
+| `-du`| `--deleteupload` | (Used with `--upload`) Sets the cleanup threshold (GB). If the `downloads` folder size exceeds this value, already **uploaded** video files will be automatically deleted to free up space. | `0.8` |
+| `-n` | `--num_videos` | (Used with `--upload`) Specifies the maximum number of videos to upload. | Unlimited |
+| `-d` | `--debug` | Enable detailed log output mode for debugging. | `False` |
+| `-v` | `--version`| Show the current version of the program. | - |
+
+#### Examples
+
+**1. Download Videos from a Specific User (Basic)**
 ```bash
-# Download only
-uv run python main.py zuck
-
-# Download and then auto-upload
-uv run python main.py zuck --upload
+# Download videos from user 'zuck' with the default scroll count (3)
+uv run python main.py -t zuck
 ```
 
-**Mode 2: Download Videos from a Keyword Search**
+**2. Specify Output Directory and Scrape Depth**
 ```bash
-uv run python main.py --search "your_keyword_here" --upload
+# Download from 'zuck', scroll 10 times, and save videos to the 'zuck_videos' folder
+uv run python main.py -t zuck -r 10 -o zuck_videos
 ```
 
-**Mode 3: Download Videos from Your Home Feed**
+**3. Search and Download by Keyword**
 ```bash
-uv run python main.py --upload
+# Search for "cats" and download the resulting videos
+uv run python main.py -s "cats"
 ```
 
-**Mode 4: Run Uploader Only**
-Execute the uploader independently to upload videos that are in the database but not yet published.
+**4. Download from Your Home Feed**
 ```bash
+# Simply run the script without -t or -s
+uv run python main.py
+```
+
+**5. Download and Automatically Trigger Upload**
+```bash
+# Download videos from 'zuck' and start the upload process immediately after
+uv run python main.py -t zuck -u
+```
+
+### `uploader.py` (Standalone Uploader)
+
+This script checks the database for downloaded videos that have not yet been uploaded and publishes them to YouTube. It can be run independently to process a backlog of videos.
+
+#### Arguments
+
+| Short | Long | Description | Default |
+| :--- | :--- | :--- | :--- |
+| `-du`| `--deleteupload` | Sets the cleanup threshold (GB). If the `downloads` folder size exceeds this value, already **uploaded** video files will be automatically deleted to free up space. | `0.8` |
+| `-n` | `--num_videos` | Specifies the maximum number of videos to upload in this run. | Unlimited |
+
+#### Examples
+
+**1. Run the Uploader with Default Cleanup Threshold**
+```bash
+# Check the database and upload pending videos.
+# Before uploading, it checks if the 'downloads' folder exceeds 0.8 GB and cleans up if necessary.
 uv run python uploader.py
 ```
 
-**Mode 5: View the Database**
-Start the Datasette web interface to view the database content at `http://127.0.0.1:8001/`.
+**2. Run the Uploader with a Custom Cleanup Threshold**
 ```bash
-uv run datasette threads_dlp.db
+# Set the cleanup threshold to 1.5 GB.
+# Cleanup will only be triggered if the folder size is over 1.5 GB.
+uv run python uploader.py -du 1.5
 ```
+
+**3. Use Custom Cleanup Threshold in a Download-Upload Workflow**
+```bash
+# Download from 'zuck', then trigger the uploader.
+# During the upload phase, use a 0.5 GB cleanup threshold.
+uv run python main.py -t zuck --upload --deleteupload 0.5
+```
+
+### `view_db.py` (Database Viewer)
+
+A simple utility to quickly view the database content in your terminal.
+
+```bash
+uv run python view_db.py
+```
+
+## 🔑 YouTube API Setup (for Auto-Upload Feature)
+
+> **Important Note:**
+> If your Google Cloud project's OAuth consent screen is in "Testing" status, the generated `request.token` will only be valid for **7 days**. To obtain a long-term valid token, you must "**Publish**" your application to production status in the Google Cloud Console. After publishing, you will need to regenerate `request.token` once.
+
+To use the automatic YouTube upload feature (`--upload`), you must first complete the Google API authorization setup, following the official guide for `youtubeuploader`. This process involves two main steps: obtaining `client_secrets.json` and generating `request.token`.
+
+### Step 1: Obtain `client_secrets.json`
+
+This file acts as the "key" for your application, letting Google know it's your program making the upload requests.
+
+1.  **Go to the Google Cloud Console**:
+    *   Log in to your Google account and navigate to the [Google Cloud Console](https://console.cloud.google.com/).
+
+2.  **Create a New Project**:
+    *   At the top of the page, click the project dropdown menu and select "New Project".
+    *   Give the project a name (e.g., `Threads Uploader`) and click "Create".
+
+3.  **Enable the YouTube Data API v3**:
+    *   In the left navigation panel, go to "APIs & Services" > "Enabled APIs & services".
+    *   Click "+ ENABLE APIS AND SERVICES" at the top.
+    *   Search for "YouTube Data API v3", click on it, and then click "Enable".
+
+4.  **Configure the OAuth Consent Screen**:
+    *   In the left navigation panel, click on "OAuth consent screen".
+    *   Choose "External" and click "Create".
+    *   Fill in an application name (e.g., `My Uploader`) and select your email. You can leave the other fields blank for now.
+    *   In the "Test users" step, click "+ ADD USERS" and **enter the email address of the Google account you will use for uploading videos**. This is a critical step; otherwise, the authorization will fail later.
+    *   Save and continue until the setup is complete.
+
+5.  **Create Credentials (OAuth Client ID)**:
+    *   In the left navigation panel, click on "Credentials".
+    *   Click "+ CREATE CREDENTIALS" at the top and select "OAuth client ID".
+    *   For "Application type", choose "**Web application**".
+    *   Give it a name (e.g., `youtubeuploader-creds`).
+    *   Under the "Authorized redirect URIs" section, click "+ ADD URI" and enter `http://localhost:8080/oauth2callback`.
+    *   Click "Create".
+
+6.  **Download the Credential File**:
+    *   After creation, you will see the new client ID in your credentials list.
+    *   Click the "Download JSON" icon on the far right.
+    *   **Rename the downloaded file to `client_secrets.json`** and place it in the root directory of your `threads-dlp` project.
+
+### Step 2: Generate `request.token`
+
+This file is the "pass" that grants your application permission to act on behalf of your personal account.
+
+1.  **Run an Upload Command Once**:
+    *   Make sure `client_secrets.json` is in your project's root directory.
+    *   Run a command that includes the upload flag in your terminal, for example:
+        ```bash
+        uv run python main.py zuck --upload
+        ```
+2.  **Complete the Browser Authorization**:
+    *   The program will print a URL starting with `localhost` in your terminal and wait.
+    *   **Copy this URL** and paste it into your browser.
+    *   Log in with the same Google account you added as a "Test user".
+    *   Grant the requested permissions.
+    *   After authorization, the page will redirect to a `localhost` URL that cannot be reached. This is expected. **Copy this entire redirected URL from your browser's address bar**.
+3.  **Paste the Authorization Code**:
+    *   Return to your terminal. The program will be prompting you to paste the URL.
+    *   Paste the URL you just copied and press Enter.
+4.  **Token Generation**:
+    *   Upon successful validation, the uploader will automatically generate a file named `request.token` in your project's root directory.
+
+After completing these steps, your project will have full permission to upload videos automatically. Both `client_secrets.json` and `request.token` should be treated as confidential files and should never be committed to a public Git repository (the project's `.gitignore` already ignores them by default).
 
 ---
 

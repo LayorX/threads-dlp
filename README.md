@@ -93,38 +93,165 @@
 
 ## 📖 本地端使用方法
 
-確保你已經啟用了虛擬環境 (`.venv\Scripts\activate`)。
+確保你已經啟用了虛擬環境 (`.venv\Scripts\activate`)。本專案主要包含兩個可執行的腳本：`main.py` (主程式/下載器) 和 `uploader.py` (獨立上傳器)。
 
-**模式一：下載指定用戶的影片**
+### `main.py` (主程式/下載器)
+
+這是最主要的進入點，負責執行爬取和下載任務，並可選擇在下載完成後觸發上傳。
+
+#### 參數說明
+
+| 短格式 | 長格式 | 功能說明 | 預設值 |
+| :--- | :--- | :--- | :--- |
+| `-t` | `--target` | 指定要爬取的 Threads 用戶名稱。 | `None` (若未指定，則爬取首頁) |
+| `-s` | `--search` | 根據關鍵字進行搜尋並爬取結果。 | `None` |
+| `-r` | `--scroll` | 模擬頁面向下滾動的次數，數字越大爬取越深。 | `3` |
+| `-o` | `--output` | 指定儲存下載影片的資料夾路徑。 | `downloads` |
+| `-u` | `--upload` | 在下載任務完成後，自動執行上傳任務。 | `False` |
+| `-du`| `--deleteupload` | (與 `--upload` 一起使用時) 設定清理閾值 (GB)。當 `downloads` 資料夾大小超過此值，將自動刪除**已上傳**的影片檔案以釋放空間。 | `0.8` |
+| `-n` | `--num_videos` | (與 `--upload` 一起使用時) 指定上傳影片的數量上限。 | 無限制 |
+| `-d` | `--debug` | 啟用詳細日誌輸出模式，方便偵錯。 | `False` |
+
+#### 使用範例
+
+**1. 下載指定用戶的影片 (基本)**
 ```bash
-# 只下載
-uv run python main.py zuck
-
-# 下載後自動上傳
-uv run python main.py zuck --upload
+# 下載用戶 'zuck' 的影片，使用預設滾動次數 (3次)
+uv run python main.py -t zuck
 ```
 
-**模式二：下載搜尋關鍵字的影片**
+**2. 下載並指定儲存位置與爬取深度**
 ```bash
-uv run python main.py --search "你想搜尋的關鍵字" --upload
+# 下載用戶 'zuck' 的影片，滾動 10 次，並將影片儲存到 'zuck_videos' 資料夾
+uv run python main.py -t zuck -r 10 -o zuck_videos
 ```
 
-**模式三：下載首頁推薦的影片**
+**3. 根據關鍵字搜尋並下載**
 ```bash
-uv run python main.py --upload
+# 搜尋 "cats" 並下載相關影片
+uv run python main.py -s "cats"
 ```
 
-**模式四：僅執行上傳**
-單獨執行上傳器，上傳資料庫中已下載但尚未發布的影片。
+**4. 下載首頁推薦的影片**
 ```bash
+# 不帶 -t 或 -s 參數，直接執行即可
+uv run python main.py
+```
+
+**5. 下載後自動觸發上傳**
+```bash
+# 下載用戶 'zuck' 的影片，並在結束後立即開始上傳
+uv run python main.py -t zuck -u
+```
+
+### `uploader.py` (獨立上傳器)
+
+這個腳本負責檢查資料庫中哪些影片尚未上傳，並將它們發布到 YouTube。它也可以獨立執行，處理之前已下載但未上傳的影片。
+
+#### 參數說明
+
+| 短格式 | 長格式 | 功能說明 | 預設值 |
+| :--- | :--- | :--- | :--- |
+| `-du`| `--deleteupload` | 設定清理閾值 (GB)。當 `downloads` 資料夾大小超過此值，將自動刪除**已上傳**的影片檔案以釋放空間。 | `0.8` |
+| `-n` | `--num_videos` | 指定本次上傳影片的數量上限。 | 無限制 |
+
+#### 使用範例
+
+**1. 獨立執行上傳 (使用預設清理閾值)**
+```bash
+# 檢查資料庫，上傳待處理的影片。
+# 在上傳前會檢查 'downloads' 資料夾大小，若超過 0.8 GB 則會清理已上傳的檔案。
 uv run python uploader.py
 ```
 
-**模式五：查看資料庫**
-啟動 Datasette 網頁介面，在 `http://127.0.0.1:8001/` 查看資料庫內容。
+**2. 上傳時自訂清理閾值**
 ```bash
-uv run datasette threads_dlp.db
+# 將清理閾值設為 1.5 GB。
+# 當資料夾大小超過 1.5 GB 時，才會觸發清理。
+uv run python uploader.py -du 1.5
 ```
+
+**3. 在下載+上傳流程中自訂清理閾值**
+```bash
+# 下載 'zuck' 的影片，然後觸發上傳。
+# 在上傳階段，使用 0.5 GB 作為清理閾值。
+uv run python main.py -t zuck --upload --deleteupload 0.5
+```
+
+### `view_db.py` (資料庫查看器)
+
+一個簡單的工具，用於在命令列中快速查看資料庫內容。
+
+```bash
+uv run python view_db.py
+```
+
+## 🔑 YouTube API 設定 (自動上傳功能)
+
+> **重要提醒：**
+> 如果您的 Google Cloud 專案的 OAuth 同意畫面處於「測試」狀態，則生成的 `request.token` 只有 **7 天** 的有效期。若要獲得長期有效的 token，請務必在 Google Cloud Console 中將您的應用程式「**發布**」為正式版。發布後，您需要重新生成一次 `request.token`。
+
+若要使用自動上傳至 YouTube 的功能 (`--upload`)，您必須先完成 Google API 的授權設定。此過程遵循 `youtubeuploader` 的官方指南，分為兩大步：獲取 `client_secrets.json` 和生成 `request.token`。
+
+### 步驟 1：獲取 `client_secrets.json`
+
+此檔案相當於您的應用程式的「鑰匙」，讓 Google 知道是您的程式在請求上傳。
+
+1.  **前往 Google Cloud Console**:
+    *   登入您的 Google 帳號，然後進入 [Google Cloud Console](https://console.cloud.google.com/)。
+
+2.  **建立新專案**:
+    *   在頁面頂部，點擊專案選單，然後選擇「新增專案」。
+    *   為專案命名（例如 `Threads Uploader`），然後點擊「建立」。
+
+3.  **啟用 YouTube Data API v3**:
+    *   在左側導覽列中，找到「API 和服務」 > 「已啟用的 API 和服務」。
+    *   點擊頂部的「+ 啟用 API 和服務」。
+    *   搜尋「YouTube Data API v3」並點擊進入，然後點擊「啟用」。
+
+4.  **設定 OAuth 同意畫面**:
+    *   在左側導覽列中，點擊「OAuth 同意畫面」。
+    *   選擇「外部」，然後點擊「建立」。
+    *   填寫應用程式名稱（例如 `My Uploader`），並選擇您的電子郵件。其他欄位暫時可以留空。
+    *   在「測試使用者」步驟中，點擊「+ ADD USERS」，然後**輸入您要用來上傳影片的那個 Google 帳號的 Email**。這是非常重要的一步，否則後續授權會失敗。
+    *   儲存並繼續，直到完成設定。
+
+5.  **建立憑證 (OAuth 用戶端 ID)**:
+    *   在左側導覽列中，點擊「憑證」。
+    *   點擊頂部的「+ 建立憑證」，然後選擇「OAuth 用戶端 ID」。
+    *   在「應用程式類型」中，選擇「**Web 應用程式**」(Web application)。
+    *   為其命名（例如 `youtubeuploader-creds`）。
+    *   在「已授權的重新導向 URI」部分，點擊「+ 新增 URI」，然後輸入 `http://localhost:8080/oauth2callback`。
+    *   點擊「建立」。
+
+6.  **下載憑證檔案**:
+    *   建立成功後，您會在憑證列表中看到剛剛建立的用戶端。
+    *   點擊最右側的「下載 JSON」圖示。
+    *   將下載的檔案**重新命名為 `client_secrets.json`**，並將它放置在 `threads-dlp` 專案的根目錄下。
+
+### 步驟 2：生成 `request.token`
+
+此檔案是您個人帳號授權給此應用程式的「通行證」。
+
+1.  **執行一次上傳指令**:
+    *   確保 `client_secrets.json` 已經放在專案根目錄。
+    *   在命令列中執行一次需要上傳的指令，例如：
+        ```bash
+        uv run python main.py zuck --upload
+        ```
+2.  **完成瀏覽器授權**:
+    *   程式會自動在您的瀏覽器中打開一個 Google 授權頁面，並在命令列中顯示一個 `localhost` 開頭的網址。
+    *   **複製該網址**，並在瀏覽器中打開。
+    *   登入您在「測試使用者」步驟中設定的那個 Google 帳號。
+    *   同意授權請求。
+    *   授權成功後，頁面會重新導向到一個無法顯示的 `localhost` 頁面，這是正常的。**請將這個重新導向後的網址完整複製下來**。
+3.  **貼上授權碼**:
+    *   回到您的命令列，程式會提示您貼上剛剛複製的網址。
+    *   貼上網址並按下 Enter。
+4.  **生成 Token**:
+    *   驗證成功後，`uploader` 會自動在專案根目錄下生成一個名為 `request.token` 的檔案。
+
+完成以上步驟後，您的專案就擁有了完整的自動上傳權限。`client_secrets.json` 和 `request.token` 都應被視為機密檔案，切勿將它們提交到公開的 Git 倉庫中（專案的 `.gitignore` 已預設忽略它們）。
 
 ---
 
