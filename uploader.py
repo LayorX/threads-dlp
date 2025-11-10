@@ -11,6 +11,20 @@ from dotenv import load_dotenv
 
 from modules.database import init_db, get_all_videos_to_upload, update_upload_status, get_all_uploaded_videos
 
+def load_language_strings(language='zh-TW') -> dict:
+    """從 languages.json 載入指定語言的字串。"""
+    try:
+        # 調整路徑以適應模組導入
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        lang_file_path = os.path.join(base_dir, 'languages.json')
+        with open(lang_file_path, 'r', encoding='utf-8') as f:
+            all_strings = json.load(f)
+            # 返回 uploader 模組專用的字串，如果不存在則返回空字典
+            return all_strings.get(language, {}).get('uploader', {})
+    except (FileNotFoundError, json.JSONDecodeError):
+        logging.error("語言檔案 languages.json 遺失或格式錯誤。")
+        return {}
+
 def setup_logging():
     """設定一個冪等的日誌記錄器，避免在匯入時重複設定。"""
     log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -41,13 +55,14 @@ def get_folder_size(path='.'):
                 total_size += os.path.getsize(fp)
     return total_size / (1024**3) # 從 Bytes 轉換為 Gigabytes
 
-def cleanup_uploaded_files(downloads_path="downloads"):
+def cleanup_uploaded_files(downloads_path="downloads", language='zh-TW'):
     """從資料庫獲取已上傳的影片列表，並刪除其本地檔案及對應的 .json 檔案。"""
-    logging.info("開始清理已上傳的檔案...")
+    lang_strings = load_language_strings(language)
+    logging.info(lang_strings.get('cleanup_start', "開始清理已上傳的檔案..."))
     uploaded_video_paths = get_all_uploaded_videos()
     deleted_count = 0
     if not uploaded_video_paths:
-        logging.info("資料庫中沒有已上傳的影片可供清理。")
+        logging.info(lang_strings.get('cleanup_no_files', "資料庫中沒有已上傳的影片可供清理。"))
         return
 
     for video_path in uploaded_video_paths:
@@ -55,18 +70,18 @@ def cleanup_uploaded_files(downloads_path="downloads"):
             try:
                 # 刪除影片檔案
                 os.remove(video_path)
-                logging.info(f"已刪除已上傳的影片: {video_path}")
+                logging.info(lang_strings.get('cleanup_deleted_video', "已刪除已上傳的影片: {path}").format(path=video_path))
                 deleted_count += 1
 
                 # 嘗試刪除對應的 metadata.json 檔案
                 meta_path = os.path.splitext(video_path)[0] + '.json'
                 if os.path.exists(meta_path):
                     os.remove(meta_path)
-                    logging.info(f"已刪除對應的元數據檔案: {meta_path}")
+                    logging.info(lang_strings.get('cleanup_deleted_meta', "已刪除對應的元數據檔案: {path}").format(path=meta_path))
 
             except OSError as e:
-                logging.error(f"刪除檔案 {video_path} 時發生錯誤: {e}")
-    logging.info(f"清理完畢。共刪除了 {deleted_count} 個影片檔案。")
+                logging.error(lang_strings.get('cleanup_delete_error', "刪除檔案 {path} 時發生錯誤: {error}").format(path=video_path, error=e))
+    logging.info(lang_strings.get('cleanup_done', "清理完畢。共刪除了 {count} 個影片檔案。").format(count=deleted_count))
 
 
 def load_config() -> dict:
@@ -241,33 +256,34 @@ def _ensure_file_from_env(file_path: str, env_var: str):
             logging.critical(message)
             raise FileNotFoundError(message)
 
-def run_upload_task(cleanup_threshold_gb=0.8, num_videos=None):
+def run_upload_task(cleanup_threshold_gb=0.8, num_videos=None, language='zh-TW'):
     """上傳影片的核心任務，包含清理邏輯。"""
+    lang_strings = load_language_strings(language)
     
     # --- 磁碟空間清理檢查 ---
     downloads_folder = "downloads"
     folder_size_gb = get_folder_size(downloads_folder)
-    logging.info(f"'{downloads_folder}' 資料夾目前大小: {folder_size_gb:.2f} GB。清理閾值為: {cleanup_threshold_gb} GB。")
+    logging.info(lang_strings.get('folder_size_check', "'{folder}' 資料夾目前大小: {size:.2f} GB。清理閾值為: {threshold} GB.").format(folder=downloads_folder, size=folder_size_gb, threshold=cleanup_threshold_gb))
 
     if folder_size_gb > cleanup_threshold_gb:
-        logging.warning(f"資料夾大小已超過閾值。觸發已上傳檔案的清理程序...")
-        cleanup_uploaded_files(downloads_folder)
+        logging.warning(lang_strings.get('cleanup_triggered', "資料夾大小已超過閾值。觸發已上傳檔案的清理程序..."))
+        cleanup_uploaded_files(downloads_folder, language=language)
     else:
-        logging.info("資料夾大小在限制範圍內，無需清理。")
+        logging.info(lang_strings.get('cleanup_not_needed', "資料夾大小在限制範圍內，無需清理。"))
 
     # --- 執行上傳 ---
     config = load_config()
     videos_to_upload = get_all_videos_to_upload()
     if not videos_to_upload:
-        logging.info("資料庫中沒有新的影片需要上傳。")
+        logging.info(lang_strings.get('no_videos_to_upload', "資料庫中沒有新的影片需要上傳。"))
         return
     
     # --- 根據 num_videos 參數限制上傳數量 ---
     if num_videos is not None and num_videos > 0:
-        logging.info(f"根據 --num_videos 參數，本次最多上傳 {num_videos} 部影片。")
+        logging.info(lang_strings.get('upload_limit_info', "根據 --num_videos 參數，本次最多上傳 {count} 部影片。").format(count=num_videos))
         videos_to_upload = videos_to_upload[:num_videos]
     
-    logging.info(f"發現 {len(videos_to_upload)} 部影片待上傳。")
+    logging.info(lang_strings.get('videos_found', "發現 {count} 部影片待上傳。").format(count=len(videos_to_upload)))
 
     is_publish_now = config.get("is_publish_now")
     publish_start_from = config.get("publish_start_from")
@@ -279,10 +295,10 @@ def run_upload_task(cleanup_threshold_gb=0.8, num_videos=None):
         video_id = video_data['video_id']
         video_path = video_data['local_path']
         if not os.path.exists(video_path):
-            logging.warning(f"跳過影片 ID {video_id}，因為檔案不存在: {video_path}")
+            logging.warning(lang_strings.get('video_file_not_found', "跳過影片 ID {video_id}，因為檔案不存在: {path}").format(video_id=video_id, path=video_path))
             continue
         
-        logging.info(f"--- 正在處理第 {i+1}/{len(videos_to_upload)} 部影片: {os.path.basename(video_path)} ---")
+        logging.info(lang_strings.get('processing_video', "--- 正在處理第 {current}/{total} 部影片: {filename} ---").format(current=i+1, total=len(videos_to_upload), filename=os.path.basename(video_path)))
         
         publish_time = first_publish_time + timedelta(hours=i * time_increment_hours)
         publish_time_iso = publish_time.isoformat()
@@ -293,7 +309,7 @@ def run_upload_task(cleanup_threshold_gb=0.8, num_videos=None):
         
         metadata = generate_metadata(video_data['caption'], video_filename, publish_time_iso, config)
         if not metadata:
-            logging.warning(f"因元數據生成失敗，跳過影片 '{video_id}'。")
+            logging.warning(lang_strings.get('metadata_gen_failed', "因元數據生成失敗，跳過影片 '{video_id}'。").format(video_id=video_id))
             continue
         
         with open(meta_path, 'w', encoding='utf-8') as f:
@@ -303,13 +319,13 @@ def run_upload_task(cleanup_threshold_gb=0.8, num_videos=None):
             try:
                 update_upload_status(video_id, status=True)
             except Exception as e:
-                logging.critical(f"致命錯誤: 更新影片 {video_id} 的資料庫狀態失敗: {e}")
+                logging.critical(lang_strings.get('db_update_failed', "致命錯誤: 更新影片 {video_id} 的資料庫狀態失敗: {error}").format(video_id=video_id, error=e))
                 break 
         else:
-            logging.error(f"影片 '{video_id}' 上傳失敗。中止本次上傳任務。")
+            logging.error(lang_strings.get('upload_failed', "影片 '{video_id}' 上傳失敗。中止本次上傳任務。").format(video_id=video_id))
             break
         time.sleep(5)
-    logging.info("所有上傳任務已完成。")
+    logging.info(lang_strings.get('upload_task_complete', "所有上傳任務已完成。"))
 
 def main():
     """CLI 進入點，解析參數並執行上傳任務。"""
@@ -328,10 +344,21 @@ def main():
         default=None,
         help='指定本次上傳影片的數量上限。預設為無限制。'
     )
+    parser.add_argument(
+        '-l', '--language',
+        type=str,
+        default='zh-TW',
+        choices=['zh-TW', 'en'],
+        help='設定日誌輸出的語言。'
+    )
     args = parser.parse_args()
 
     init_db()
-    run_upload_task(cleanup_threshold_gb=args.deleteupload, num_videos=args.num_videos)
+    run_upload_task(
+        cleanup_threshold_gb=args.deleteupload, 
+        num_videos=args.num_videos,
+        language=args.language
+    )
 
 if __name__ == "__main__":
     main()

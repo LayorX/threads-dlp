@@ -15,6 +15,17 @@ from modules.database import init_db, get_all_existing_video_ids, add_video_entr
 
 __version__ = "1.0.0"
 
+def load_language_strings(language='zh-TW') -> dict:
+    """從 languages.json 載入指定語言的字串。"""
+    try:
+        with open("languages.json", 'r', encoding='utf-8') as f:
+            all_strings = json.load(f)
+            # 返回 main 模組專用的字串，如果不存在則返回空字典
+            return all_strings.get(language, {}).get('main', {})
+    except (FileNotFoundError, json.JSONDecodeError):
+        logging.error("語言檔案 languages.json 遺失或格式錯誤，將使用預設的繁體中文。")
+        return {}
+
 def sanitize_filename(filename: str) -> str:
     """清理並淨化檔名，移除無效字元和多餘的空格。"""
     sanitized = re.sub(r'[\\/:*?"<>|]', '-', filename)
@@ -46,12 +57,14 @@ def run_download_task(
     log_level: int = logging.WARNING,
     do_upload: bool = False,
     cleanup_threshold: float = 0.8,
-    num_videos_to_upload: int = None
+    num_videos_to_upload: int = None,
+    language: str = 'zh-TW'
 ):
     """
     核心下載任務邏輯。
     此函式被設計為可由外部腳本匯入和呼叫。
     """
+    lang_strings = load_language_strings(language)
 
     logging.basicConfig(level=log_level, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
     # 特別將吵雜的函式庫的日誌等級也設定為 WARNING
@@ -64,31 +77,32 @@ def run_download_task(
     download_threshold = download_threshold_override if download_threshold_override is not None else config['download_threshold']
 
     # --- 啟動時顯示所有重要參數 ---
-    logging.info("==================== 任務啟動 ====================")
+    logging.info(lang_strings.get('task_start', "==================== 任務啟動 ===================="))
+    logging.info( f"→→→ Version: {__version__} ←←←")
     if search_query:
-        logging.info(f" [模式] 搜尋關鍵字: \"{search_query}\"")
+        logging.info(lang_strings.get('mode_search', " [模式] 搜尋關鍵字: \"{query}\"").format(query=search_query))
         target_url = f"https://www.threads.net/search?q={quote(search_query)}"
     elif target_username:
-        logging.info(f" [模式] 指定用戶: @{target_username}")
+        logging.info(lang_strings.get('mode_user', " [模式] 指定用戶: @{username}").format(username=target_username))
         target_url = f"https://www.threads.net/@{target_username}"
     else:
-        logging.info(" [模式] 預設首頁推薦內容")
+        logging.info(lang_strings.get('mode_home', " [模式] 預設首頁推薦內容"))
         target_url = "https://www.threads.net/"
 
-    logging.info(f" [設定] 按讚門檻: {like_threshold if like_threshold != -1 else '停用'}")
-    logging.info(f" [設定] 下載門檻: {download_threshold}")
-    logging.info(f" [設定] 爬取深度 (滾動次數): {scroll_count}")
-    logging.info(f" [設定] 影片輸出目錄: {output_dir}")
-    logging.info(f" [設定] 下載後自動上傳: {'是' if do_upload else '否'}")
+    logging.info(lang_strings.get('like_threshold', " [設定] 按讚門檻: {threshold}").format(threshold=like_threshold if like_threshold != -1 else lang_strings.get('like_disabled', '停用')))
+    logging.info(lang_strings.get('download_threshold', " [設定] 下載門檻: {threshold}").format(threshold=download_threshold))
+    logging.info(lang_strings.get('scroll_depth', " [設定] 爬取深度 (滾動次數): {count}").format(count=scroll_count))
+    logging.info(lang_strings.get('output_dir', " [設定] 影片輸出目錄: {dir}").format(dir=output_dir))
+    logging.info(lang_strings.get('auto_upload', " [設定] 下載後自動上傳: {status}").format(status=lang_strings.get('yes', '是') if do_upload else lang_strings.get('no', '否')))
     if do_upload:
-        logging.info(f"   [上傳設定] 清理閾值: {cleanup_threshold} GB")
-        logging.info(f"   [上傳設定] 本次上傳數量上限: {num_videos_to_upload if num_videos_to_upload is not None else '無限制'}")
-    logging.info("==================================================")
+        logging.info(lang_strings.get('cleanup_threshold', "   [上傳設定] 清理閾值: {threshold} GB").format(threshold=cleanup_threshold))
+        logging.info(lang_strings.get('upload_limit', "   [上傳設定] 本次上傳數量上限: {limit}").format(limit=num_videos_to_upload if num_videos_to_upload is not None else lang_strings.get('unlimited', '無限制')))
+    logging.info(lang_strings.get('task_end', "=================================================="))
 
 
     existing_video_ids = get_all_existing_video_ids()
     liked_post_ids = get_all_liked_post_ids()
-    logging.info(f"[DB] 資料庫中已存在 {len(existing_video_ids)} 筆影片紀錄，{len(liked_post_ids)} 筆按讚紀錄。")
+    logging.info(lang_strings.get('db_info', "[DB] 資料庫中已存在 {videos} 筆影片紀錄，{likes} 筆按讚紀錄。").format(videos=len(existing_video_ids), likes=len(liked_post_ids)))
     
     os.makedirs(output_dir, exist_ok=True)
     
@@ -99,17 +113,18 @@ def run_download_task(
             like_threshold=like_threshold,
             download_threshold=download_threshold,
             liked_post_ids=liked_post_ids,
-            continuous=continuous_mode
+            continuous=continuous_mode,
+            language=language
         )
     except ValueError as e:
-        logging.error(f"操作中止：{e}")
+        logging.error(lang_strings.get('operation_aborted', "操作中止：{error}").format(error=e))
         return
 
     if not scraped_videos:
-        logging.info("未抓取到任何符合下載條件的新影片。")
+        logging.info(lang_strings.get('no_new_videos', "未抓取到任何符合下載條件的新影片。"))
         return
 
-    logging.info(f"篩選完成，共 {len(scraped_videos)} 個影片待下載")
+    logging.info(lang_strings.get('scraping_complete', "篩選完成，共 {count} 個影片待下載").format(count=len(scraped_videos)))
     videos_by_post = defaultdict(list)
     for video in scraped_videos:
         video_id = f"{video.get('post_id')}-{video.get('video_index', 1)}"
@@ -126,7 +141,7 @@ def run_download_task(
             video_id = f"{post_id}-{video_index}"
 
             safe_caption = str(video_data['caption']).encode('utf-8', 'ignore').decode('utf-8')
-            logging.info(f"正在處理影片 ID: {video_id}, 作者: {video_data['author']}, 內容: {safe_caption[:50]}...")
+            logging.info(lang_strings.get('processing_video', "正在處理影片 ID: {video_id}, 作者: {author}, 內容: {caption}...").format(video_id=video_id, author=video_data['author'], caption=safe_caption[:50]))
             
             author = video_data.get('author', 'unknown')[:20]
             caption_part = video_data.get('caption', '')[:10]
@@ -149,45 +164,48 @@ def run_download_task(
                     add_video_entry(video_data)
                     new_videos_downloaded += 1
                 except Exception as e:
-                    logging.critical(f"寫入資料庫失敗: {e}，中止執行。")
+                    logging.critical(lang_strings.get('db_write_failed', "寫入資料庫失敗: {error}，中止執行。").format(error=e))
                     return # Stop further processing
             else:
-                logging.error(f"影片 {video_id} 下載失敗，跳過紀錄。")
+                logging.error(lang_strings.get('download_failed', "影片 {video_id} 下載失敗，跳過紀錄。").format(video_id=video_id))
 
-    logging.info(f"本次共下載了 {new_videos_downloaded} 個新影片")
+    logging.info(lang_strings.get('total_downloaded', "本次共下載了 {count} 個新影片").format(count=new_videos_downloaded))
 
 def main():
     """主函式，負責處理命令列參數並呼叫核心下載任務。"""
-    parser = argparse.ArgumentParser(description="從 Threads 下載影片，並可選擇性地進行智慧按讚與篩選。")
+    parser = argparse.ArgumentParser(description="Download videos from Threads, with optional smart liking and filtering.")
     
-    parser.add_argument("-t", "--target", nargs='?', default=None, help="目標用戶名 (不需加@)")
-    parser.add_argument("-s", "--search", type=str, help="要搜尋的關鍵字")
-    parser.add_argument("-r", "--scroll", type=int, default=3, help="頁面滾動次數")
-    parser.add_argument("-o", "--output", type=str, default="downloads", help="影片儲存的資料夾")
-    parser.add_argument("-u", "--upload", action='store_true', help="下載完成後，自動執行上傳器")
+    parser.add_argument("-l", "--language", type=str, default="zh-TW", choices=['zh-TW', 'en'], help="Set the language for log output.")
+    parser.add_argument("-t", "--target", nargs='?', default=None, help="Target username (without @).")
+    parser.add_argument("-s", "--search", type=str, help="Keyword to search for.")
+    parser.add_argument("-r", "--scroll", type=int, default=3, help="Number of times to scroll down the page.")
+    parser.add_argument("-o", "--output", type=str, default="downloads", help="Folder to save downloaded videos.")
+    parser.add_argument("-u", "--upload", action='store_true', help="Automatically run uploader after download tasks.")
     parser.add_argument(
         '-du', '--deleteupload',
         type=float,
         default=0.8,
-        help='(與 --upload 一起使用時) 設定清理閾值 (GB)。'
+        help='(Used with --upload) Sets the cleanup threshold (GB).'
     )
     parser.add_argument(
         '-n', '--num_videos',
         type=int,
         default=None,
-        help='(與 --upload 一起使用時) 指定上傳影片的數量上限。'
+        help='(Used with --upload) Specifies the maximum number of videos to upload.'
     )
     
-    parser.add_argument("-l^", "--like-above", type=int, default=None, help="覆寫設定檔，當讚數 >= N 時按讚")
-    parser.add_argument("-d^", "--download-above", type=int, default=None, help="覆寫設定檔，當讚數 >= N 時下載")
-    parser.add_argument("-c", "--continuous", action='store_true', help="持續滾動模式，直到找到至少5個符合條件的影片")
+    parser.add_argument("-l^", "--like-above", type=int, default=None, help="Override config: like posts with >= N likes.")
+    parser.add_argument("-d^", "--download-above", type=int, default=None, help="Override config: download posts with >= N likes.")
+    parser.add_argument("-c", "--continuous", action='store_true', help="Continuous scrolling mode until at least 5 matching videos are found.")
 
-    parser.add_argument("-d", "--debug", action='store_true', help="啟用詳細日誌輸出 (INFO 級別)")
-    parser.add_argument("-v", "--version", action='version', version=f'%(prog)s {__version__}', help="顯示程式版本號")
+    parser.add_argument("-d", "--debug", action='store_true', help="Enable detailed log output (INFO level).")
+    parser.add_argument("-v", "--version", action='version', version=f'%(prog)s {__version__}', help="Show program version number.")
 
     args = parser.parse_args()
 
     log_level = logging.DEBUG if args.debug else logging.INFO
+
+    lang_strings = load_language_strings(args.language)
 
     # 在執行任何任務前，先初始化資料庫
     init_db()
@@ -204,22 +222,24 @@ def main():
         log_level=log_level,
         do_upload=args.upload,
         cleanup_threshold=args.deleteupload,
-        num_videos_to_upload=args.num_videos
+        num_videos_to_upload=args.num_videos,
+        language=args.language
     )
 
     if args.upload:
-        logging.info("\n--- 所有下載任務已完成，即將啟動上傳器... ---")
+        logging.info(lang_strings.get('starting_uploader', "\n--- 所有下載任務已完成，即將啟動上傳器... ---"))
         try:
             # 匯入 uploader 模組並直接呼叫其核心任務函式
             import uploader
             uploader.run_upload_task(
                 cleanup_threshold_gb=args.deleteupload,
-                num_videos=args.num_videos
+                num_videos=args.num_videos,
+                language=args.language
             )
         except ImportError:
-            logging.error("[錯誤] 無法匯入 uploader.py 模組。")
+            logging.error(lang_strings.get('uploader_import_error', "[錯誤] 無法匯入 uploader.py 模組。"))
         except Exception as e:
-            logging.error(f"[錯誤] uploader.py 執行失敗: {e}")
+            logging.error(lang_strings.get('uploader_exec_failed', "[錯誤] uploader.py 執行失敗: {error}").format(error=e))
 
 if __name__ == "__main__":
     main()
