@@ -30,14 +30,14 @@ def download_job():
     logging.info("=== 開始排程下載任務 ===")
     
     # 從環境變數讀取參數，如果未設定則使用預設值
-    target_user = os.getenv("THREADS_TARGET_USER", "nasa") # 範例: nasa
+    target_user = os.getenv("THREADS_TARGET_USER", "nasa") # 範例: nasa useless
     scrolls = int(os.getenv("THREADS_SCROLL_COUNT", 5))
     
     logging.info(f"目標使用者: @{target_user}，滾動次數: {scrolls}。")
     
     try:
         run_download_task(
-            download_threshold_override=5000,
+            download_threshold_override=3000,
             scroll_count=scrolls
         )
     except Exception as e:
@@ -77,8 +77,8 @@ def main():
     init_db()
 
     # --- 設定排程任務 ---
-    # 每 4 小時執行一次下載任務
-    schedule.every(4).hours.do(download_job)
+    # 每 6 小時執行一次下載任務
+    schedule.every(6).hours.do(download_job)
     logging.info("下載任務已排程，每 4 小時執行一次。")
     
     # 每日在指定時間 (UTC) 執行上傳檢查
@@ -94,7 +94,7 @@ def main():
     
     while True:
         schedule.run_pending()
-        time.sleep(1)
+        time.sleep(60)
 
 if __name__ == "__main__":
     main()
