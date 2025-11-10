@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "threads-dlp"
+name = "threads-dlp-layorx"
 version = "1.0.3"
 authors = [
   { name="LayorX", email="your@email.com" },
