@@ -27,7 +27,8 @@
       "total_downloaded": "本次共下載了 {count} 個新影片",
       "starting_uploader": "\n--- 所有下載任務已完成，即將啟動上傳器... ---",
       "uploader_import_error": "[錯誤] 無法匯入 uploader.py 模組。",
-      "uploader_exec_failed": "[錯誤] uploader.py 執行失敗: {error}"
+      "uploader_exec_failed": "[錯誤] uploader.py 執行失敗: {error}",
+      "upload_param_warning": "錯誤：參數 '-n' 或 '-du' 必須與 '-u' (自動上傳) 參數一起使用。請修正您的指令。"
     },
     "scraper": {
       "cleanup_failed": "[Scraper] 刪除舊的暫存檔失敗: {error}",
@@ -106,7 +107,8 @@
       "total_downloaded": "Downloaded {count} new videos in this session.",
       "starting_uploader": "\n--- All download tasks are complete, starting uploader... ---",
       "uploader_import_error": "[ERROR] Failed to import uploader.py module.",
-      "uploader_exec_failed": "[ERROR] Failed to execute uploader.py: {error}"
+      "uploader_exec_failed": "[ERROR] Failed to execute uploader.py: {error}",
+      "upload_param_warning": "ERROR: Parameters '-n' or '-du' must be used with the '-u' (auto-upload) parameter. Please correct your command."
     },
     "scraper": {
       "cleanup_failed": "[Scraper] Failed to delete old temporary file: {error}",

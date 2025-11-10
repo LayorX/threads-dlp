@@ -107,8 +107,8 @@ This is the main entry point for scraping and downloading videos. It can also tr
 | `-o` | `--output` | Specify the directory to save downloaded videos. | `downloads` |
 | `-l` | `--language` | Set the language for log output. | `zh-TW` |
 | `-u` | `--upload` | Automatically execute the uploader after download tasks are complete. | `False` |
-| `-du`| `--deleteupload` | (Used with `--upload`) Sets the cleanup threshold (GB). If the `downloads` folder size exceeds this value, already **uploaded** video files will be automatically deleted to free up space. | `0.8` |
-| `-n` | `--num_videos` | (Used with `--upload`) Specifies the maximum number of videos to upload. | Unlimited |
+| `-du`| `--deleteupload` | **(Requires `--upload`)** Sets the cleanup threshold (GB). If the `downloads` folder size exceeds this value, already **uploaded** video files will be automatically deleted to free up space. | `0.8` |
+| `-n` | `--num_videos` | **(Requires `--upload`)** Specifies the maximum number of videos to upload. | Unlimited |
 | `-d` | `--debug` | Enable detailed log output mode for debugging. | `False` |
 | `-v` | `--version`| Show the current version of the program. | - |
 

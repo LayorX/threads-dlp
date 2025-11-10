@@ -8,6 +8,7 @@ import subprocess
 import json
 from collections import defaultdict
 from urllib.parse import quote
+import sys
 
 from modules.downloader import download_video
 from modules.scraper import scrape_videos
@@ -165,7 +166,13 @@ def run_download_task(
                     new_videos_downloaded += 1
                 except Exception as e:
                     logging.critical(lang_strings.get('db_write_failed', "寫入資料庫失敗: {error}，中止執行。").format(error=e))
-                    return # Stop further processing
+                    # 事務性操作：如果資料庫寫入失敗，則刪除已下載的檔案
+                    logging.warning(f"由於資料庫寫入失敗，正在刪除已下載的檔案: {full_path}")
+                    try:
+                        os.remove(full_path)
+                    except OSError as remove_error:
+                        logging.error(f"刪除檔案 {full_path} 失敗: {remove_error}")
+                    return # 中止執行以避免進一步錯誤
             else:
                 logging.error(lang_strings.get('download_failed', "影片 {video_id} 下載失敗，跳過紀錄。").format(video_id=video_id))
 
@@ -206,6 +213,11 @@ def main():
     log_level = logging.DEBUG if args.debug else logging.INFO
 
     lang_strings = load_language_strings(args.language)
+
+    # --- 參數使用檢查 ---
+    if (args.num_videos is not None or args.deleteupload != 0.8) and not args.upload:
+        logging.critical(lang_strings.get('upload_param_warning', "錯誤：參數 '-n' 或 '-du' 必須與 '-u' (自動上傳) 參數一起使用。請修正您的指令。"))
+        sys.exit(1) # 直接退出程式
 
     # 在執行任何任務前，先初始化資料庫
     init_db()

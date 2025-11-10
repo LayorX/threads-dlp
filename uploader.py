@@ -317,7 +317,9 @@ def run_upload_task(cleanup_threshold_gb=0.8, num_videos=None, language='zh-TW')
         
         if upload_video(video_path, meta_path, config):
             try:
-                update_upload_status(video_id, status=True)
+                # 從元數據中獲取標題以存入資料庫
+                youtube_title = metadata.get('title', '')
+                update_upload_status(video_id, status=True, title=youtube_title)
             except Exception as e:
                 logging.critical(lang_strings.get('db_update_failed', "致命錯誤: 更新影片 {video_id} 的資料庫狀態失敗: {error}").format(video_id=video_id, error=e))
                 break 
