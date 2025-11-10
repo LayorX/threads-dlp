@@ -182,6 +182,63 @@ A simple utility to quickly view the database content in your terminal.
 uv run python view_db.py
 ```
 
+## 🔑 YouTube API Setup (for Auto-Upload Feature)
+
+To use the automatic YouTube upload feature (`--upload`), you must first complete the Google API authorization setup. This process involves two main steps: obtaining `client_secrets.json` and generating `request.token`.
+
+### Step 1: Obtain `client_secrets.json`
+
+This file acts as the "key" for your application, letting Google know it's your program making the upload requests.
+
+1.  **Go to the Google Cloud Console**:
+    *   Log in to your Google account and navigate to the [Google Cloud Console](https://console.cloud.google.com/).
+
+2.  **Create a New Project**:
+    *   At the top of the page, click the project dropdown menu and select "New Project".
+    *   Give the project a name (e.g., `Threads Uploader`) and click "Create".
+
+3.  **Enable the YouTube Data API v3**:
+    *   In the left navigation panel, go to "APIs & Services" > "Enabled APIs & services".
+    *   Click "+ ENABLE APIS AND SERVICES" at the top.
+    *   Search for "YouTube Data API v3", click on it, and then click "Enable".
+
+4.  **Configure the OAuth Consent Screen**:
+    *   In the left navigation panel, click on "OAuth consent screen".
+    *   Choose "External" and click "Create".
+    *   Fill in an application name (e.g., `My Uploader`) and select your email. You can leave the other fields blank for now.
+    *   In the "Test users" step, click "+ ADD USERS" and **enter the email address of the Google account you will use for uploading videos**. This is a critical step; otherwise, the authorization will fail later.
+    *   Save and continue until the setup is complete.
+
+5.  **Create Credentials (OAuth Client ID)**:
+    *   In the left navigation panel, click on "Credentials".
+    *   Click "+ CREATE CREDENTIALS" at the top and select "OAuth client ID".
+    *   For "Application type", choose "**Desktop app**".
+    *   Give it a name and click "Create".
+
+6.  **Download the Credential File**:
+    *   After creation, you will see the new client ID in your credentials list.
+    *   Click the "Download JSON" icon on the far right.
+    *   **Rename the downloaded file to `client_secrets.json`** and place it in the root directory of your `threads-dlp` project.
+
+### Step 2: Generate `request.token`
+
+This file is the "pass" that grants your application permission to act on behalf of your personal account.
+
+1.  **Run an Upload Command Once**:
+    *   Make sure `client_secrets.json` is in your project's root directory.
+    *   Run a command that includes the upload flag in your terminal, for example:
+        ```bash
+        uv run python main.py zuck --upload
+        ```
+2.  **Complete the Browser Authorization**:
+    *   The program will automatically open a Google authorization page in your browser.
+    *   Log in with the same Google account you added as a "Test user".
+    *   Grant the requested permissions.
+3.  **Token Generation**:
+    *   Upon successful authorization, the uploader will automatically generate a file named `request.token` in your project's root directory.
+
+After completing these steps, your project will have full permission to upload videos automatically. Both `client_secrets.json` and `request.token` should be treated as confidential files and should never be committed to a public Git repository (the project's `.gitignore` already ignores them by default).
+
 ---
 
 ## ☁️ Zeabur Cloud Deployment Guide

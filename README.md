@@ -184,6 +184,63 @@ uv run python main.py -t zuck --upload --deleteupload 0.5
 uv run python view_db.py
 ```
 
+## 🔑 YouTube API 設定 (自動上傳功能)
+
+若要使用自動上傳至 YouTube 的功能 (`--upload`)，您必須先完成 Google API 的授權設定。過程分為兩大步：獲取 `client_secrets.json` 和生成 `request.token`。
+
+### 步驟 1：獲取 `client_secrets.json`
+
+此檔案相當於您的應用程式的「鑰匙」，讓 Google 知道是您的程式在請求上傳。
+
+1.  **前往 Google Cloud Console**:
+    *   登入您的 Google 帳號，然後進入 [Google Cloud Console](https://console.cloud.google.com/)。
+
+2.  **建立新專案**:
+    *   在頁面頂部，點擊專案選單，然後選擇「新增專案」。
+    *   為專案命名（例如 `Threads Uploader`），然後點擊「建立」。
+
+3.  **啟用 YouTube Data API v3**:
+    *   在左側導覽列中，找到「API 和服務」 > 「已啟用的 API 和服務」。
+    *   點擊頂部的「+ 啟用 API 和服務」。
+    *   搜尋「YouTube Data API v3」並點擊進入，然後點擊「啟用」。
+
+4.  **設定 OAuth 同意畫面**:
+    *   在左側導覽列中，點擊「OAuth 同意畫面」。
+    *   選擇「外部」，然後點擊「建立」。
+    *   填寫應用程式名稱（例如 `My Uploader`），並選擇您的電子郵件。其他欄位暫時可以留空。
+    *   在「測試使用者」步驟中，點擊「+ ADD USERS」，然後**輸入您要用來上傳影片的那個 Google 帳號的 Email**。這是非常重要的一步，否則後續授權會失敗。
+    *   儲存並繼續，直到完成設定。
+
+5.  **建立憑證 (OAuth 用戶端 ID)**:
+    *   在左側導覽列中，點擊「憑證」。
+    *   點擊頂部的「+ 建立憑證」，然後選擇「OAuth 用戶端 ID」。
+    *   在「應用程式類型」中，選擇「**電腦版應用程式**」(Desktop app)。
+    *   為其命名，然後點擊「建立」。
+
+6.  **下載憑證檔案**:
+    *   建立成功後，您會在憑證列表中看到剛剛建立的用戶端。
+    *   點擊最右側的「下載 JSON」圖示。
+    *   將下載的檔案**重新命名為 `client_secrets.json`**，並將它放置在 `threads-dlp` 專案的根目錄下。
+
+### 步驟 2：生成 `request.token`
+
+此檔案是您個人帳號授權給此應用程式的「通行證」。
+
+1.  **執行一次上傳指令**:
+    *   確保 `client_secrets.json` 已經放在專案根目錄。
+    *   在命令列中執行一次需要上傳的指令，例如：
+        ```bash
+        uv run python main.py zuck --upload
+        ```
+2.  **完成瀏覽器授權**:
+    *   程式會自動在您的瀏覽器中打開一個 Google 授權頁面。
+    *   登入您在「測試使用者」步驟中設定的那個 Google 帳號。
+    *   同意授權請求。
+3.  **生成 Token**:
+    *   授權成功後，`uploader` 會自動在專案根目錄下生成一個名為 `request.token` 的檔案。
+
+完成以上步驟後，您的專案就擁有了完整的自動上傳權限。`client_secrets.json` 和 `request.token` 都應被視為機密檔案，切勿將它們提交到公開的 Git 倉庫中（專案的 `.gitignore` 已預設忽略它們）。
+
 ---
 
 ## ☁️ Zeabur 雲端部署指南
