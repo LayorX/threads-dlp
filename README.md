@@ -46,7 +46,7 @@
 ## 🚀 本地端快速開始
 
 **先決條件:**
-- 已安裝 [Python 3.12+](https://www.python.org/downloads/)
+- 已安裝 [Python 3.10+](https://www.python.org/downloads/) (建議使用 3.10 或更高版本)
 - 已安裝 [Google Chrome](https://www.google.com/chrome/)
 - 已安裝 [Git](https://git-scm.com/downloads/)
 
@@ -58,8 +58,8 @@
     cd threads-dlp
     ```
 
-2.  **安裝 `uv`**
-    `uv` 是一個極速的 Python 套件管理工具。
+2.  **安裝 `uv` (推薦)**
+    `uv` 是一個極速的 Python 套件管理工具。如果你已經安裝了 `pip`，也可以直接使用 `pip`。
     ```bash
     # Windows (PowerShell)
     irm https://astral.sh/uv/install.ps1 | iex
@@ -67,35 +67,47 @@
     curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
 
-3.  **建立虛擬環境並同步依賴**
+3.  **建立虛擬環境並同步依賴 (如果從原始碼安裝)**
     ```bash
     uv sync
     ```
 
-4.  **設定環境變數 (`.env` 檔案)**
+4.  **從 PyPI 安裝 (推薦)**
+    如果你只想使用這個工具，可以直接從 PyPI 安裝，無需克隆整個專案。
+    ```bash
+    uv pip install threads-dlp-layorx
+    # 或者使用 pip
+    # pip install threads-dlp-layorx
+    ```
+
+5.  **設定環境變數 (`.env` 檔案)**
     在專案根目錄下，建立一個名為 `.env` 的檔案，並填入最基本的本地端執行所需變數：
     ```env
     # 必填：Threads 的 sessionid Cookie
+    # 如何獲取：登入 Threads 網站，打開瀏覽器開發者工具 (F12)，在 Application -> Cookies 中找到 sessionid 的值。
     THREADS_SESSION_COOKIE="填入你的 sessionid"
 
-    # --- 以下為自動上傳功能所需變數 (可選) ---
+    # --- 以下為自動上傳功能所需變數 (可選，但若使用上傳功能則必填) ---
 
-    # 必填：Google Gemini API 金鑰
+    # 必填：Google Gemini API 金鑰 (用於生成影片標題和描述)
+    # 如何獲取：前往 Google AI Studio (https://aistudio.google.com/) 取得。
     GEMINI_API_KEY="填入你的 Gemini API 金鑰"
 
     # 選填：將 client_secrets.json 的內容轉為單行字串貼上
+    # 參考下方 "YouTube API 設定" 獲取
     YT_CLIENT_SECRETS='{"web":{"client_id":"...", "client_secret":"...", ...}}'
 
     # 選填：將 request.token 的內容轉為單行字串貼上
+    # 參考下方 "YouTube API 設定" 獲取
     YT_REQUEST='{"token": "...", "refresh_token": "...", ...}'
     ```
     > **提示:** `YT_CLIENT_SECRETS` 和 `YT_REQUEST` 主要為雲端部署而設計。在本地端，你也可以直接將 `client_secrets.json` 和 `request.token` 檔案放置在專案根目錄下。
 
 ## 📖 本地端使用方法
 
-確保你已經啟用了虛擬環境 (`.venv\Scripts\activate`)。本專案主要包含兩個可執行的腳本：`main.py` (主程式/下載器) 和 `uploader.py` (獨立上傳器)。
+如果你是從 PyPI 安裝，可以直接使用 `threads-dlp` 命令。如果你是從原始碼克隆並使用 `uv sync`，則需要啟用虛擬環境 (`.venv\Scripts\activate`) 並使用 `uv run python main.py`。
 
-### `main.py` (主程式/下載器)
+### `threads-dlp` (主程式/下載器)
 
 這是最主要的進入點，負責執行爬取和下載任務，並可選擇在下載完成後觸發上傳。
 
@@ -117,32 +129,47 @@
 
 **1. 下載指定用戶的影片 (基本)**
 ```bash
-# 下載用戶 'zuck' 的影片，使用預設滾動次數 (3次)
-uv run python main.py -t zuck
+# 從 PyPI 安裝後直接執行
+threads-dlp -t zuck
+
+# 從原始碼執行
+# uv run python main.py -t zuck
 ```
 
 **2. 下載並指定儲存位置與爬取深度**
 ```bash
-# 下載用戶 'zuck' 的影片，滾動 10 次，並將影片儲存到 'zuck_videos' 資料夾
-uv run python main.py -t zuck -r 10 -o zuck_videos
+# 從 PyPI 安裝後直接執行
+threads-dlp -t zuck -r 10 -o zuck_videos
+
+# 從原始碼執行
+# uv run python main.py -t zuck -r 10 -o zuck_videos
 ```
 
 **3. 根據關鍵字搜尋並下載**
 ```bash
-# 搜尋 "cats" 並下載相關影片
-uv run python main.py -s "cats"
+# 從 PyPI 安裝後直接執行
+threads-dlp -s "cats"
+
+# 從原始碼執行
+# uv run python main.py -s "cats"
 ```
 
 **4. 下載首頁推薦的影片**
 ```bash
-# 不帶 -t 或 -s 參數，直接執行即可
-uv run python main.py
+# 從 PyPI 安裝後直接執行 (不帶 -t 或 -s 參數)
+threads-dlp
+
+# 從原始碼執行
+# uv run python main.py
 ```
 
 **5. 下載後自動觸發上傳**
 ```bash
-# 下載用戶 'zuck' 的影片，並在結束後立即開始上傳
-uv run python main.py -t zuck -u
+# 從 PyPI 安裝後直接執行
+threads-dlp -t zuck -u
+
+# 從原始碼執行
+# uv run python main.py -t zuck -u
 ```
 
 ### `uploader.py` (獨立上傳器)
@@ -160,23 +187,29 @@ uv run python main.py -t zuck -u
 
 **1. 獨立執行上傳 (使用預設清理閾值)**
 ```bash
-# 檢查資料庫，上傳待處理的影片。
-# 在上傳前會檢查 'downloads' 資料夾大小，若超過 0.8 GB 則會清理已上傳的檔案。
-uv run python uploader.py
+# 從 PyPI 安裝後直接執行
+threads-dlp uploader
+
+# 從原始碼執行
+# uv run python uploader.py
 ```
 
 **2. 上傳時自訂清理閾值**
 ```bash
-# 將清理閾值設為 1.5 GB。
-# 當資料夾大小超過 1.5 GB 時，才會觸發清理。
-uv run python uploader.py -du 1.5
+# 從 PyPI 安裝後直接執行
+threads-dlp uploader -du 1.5
+
+# 從原始碼執行
+# uv run python uploader.py -du 1.5
 ```
 
 **3. 在下載+上傳流程中自訂清理閾值**
 ```bash
-# 下載 'zuck' 的影片，然後觸發上傳。
-# 在上傳階段，使用 0.5 GB 作為清理閾值。
-uv run python main.py -t zuck --upload --deleteupload 0.5
+# 從 PyPI 安裝後直接執行
+threads-dlp -t zuck --upload --deleteupload 0.5
+
+# 從原始碼執行
+# uv run python main.py -t zuck --upload --deleteupload 0.5
 ```
 
 ### `view_db.py` (資料庫查看器)
@@ -184,7 +217,11 @@ uv run python main.py -t zuck --upload --deleteupload 0.5
 一個簡單的工具，用於在命令列中快速查看資料庫內容。
 
 ```bash
-uv run python view_db.py
+# 從 PyPI 安裝後直接執行
+threads-dlp view_db
+
+# 從原始碼執行
+# uv run python view_db.py
 ```
 
 ## 🔑 YouTube API 設定 (自動上傳功能)
