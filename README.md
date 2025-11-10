@@ -4,6 +4,16 @@
 <img src="./images/banner.jpg" alt="Project Banner" style="border-radius: 10px; margin-top: 10px; margin-bottom: 10px;width: 500px; height: 250px;">
 
 [English Version](./README.en.md)
+
+---
+
+### ✨ 線上儀表板 (Live Dashboard)
+
+[![Live Demo](https://img.shields.io/badge/📊-Live_Dashboard-blue?style=for-the-badge&logo=datasette)](https://101.zeabur.app/)
+
+**點擊上方徽章，查看此專案自動抓取並分析的熱門影片資料庫。**
+> **帳號:** `admin` / **密碼:** `password!`
+
 </div>
 
 
