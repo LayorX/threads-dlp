@@ -43,7 +43,10 @@ def run_download_task(
     like_threshold_override: int = None,
     download_threshold_override: int = None,
     continuous_mode: bool = False,
-    log_level: int = logging.WARNING
+    log_level: int = logging.WARNING,
+    do_upload: bool = False,
+    cleanup_threshold: float = 0.8,
+    num_videos_to_upload: int = None
 ):
     """
     核心下載任務邏輯。
@@ -60,22 +63,33 @@ def run_download_task(
     like_threshold = like_threshold_override if like_threshold_override is not None else config['like_threshold']
     download_threshold = download_threshold_override if download_threshold_override is not None else config['download_threshold']
 
+    # --- 啟動時顯示所有重要參數 ---
+    logging.info("==================== 任務啟動 ====================")
+    if search_query:
+        logging.info(f" [模式] 搜尋關鍵字: \"{search_query}\"")
+        target_url = f"https://www.threads.net/search?q={quote(search_query)}"
+    elif target_username:
+        logging.info(f" [模式] 指定用戶: @{target_username}")
+        target_url = f"https://www.threads.net/@{target_username}"
+    else:
+        logging.info(" [模式] 預設首頁推薦內容")
+        target_url = "https://www.threads.net/"
+
+    logging.info(f" [設定] 按讚門檻: {like_threshold if like_threshold != -1 else '停用'}")
+    logging.info(f" [設定] 下載門檻: {download_threshold}")
+    logging.info(f" [設定] 爬取深度 (滾動次數): {scroll_count}")
+    logging.info(f" [設定] 影片輸出目錄: {output_dir}")
+    logging.info(f" [設定] 下載後自動上傳: {'是' if do_upload else '否'}")
+    if do_upload:
+        logging.info(f"   [上傳設定] 清理閾值: {cleanup_threshold} GB")
+        logging.info(f"   [上傳設定] 本次上傳數量上限: {num_videos_to_upload if num_videos_to_upload is not None else '無限制'}")
+    logging.info("==================================================")
+
+
     existing_video_ids = get_all_existing_video_ids()
     liked_post_ids = get_all_liked_post_ids()
     logging.info(f"[DB] 資料庫中已存在 {len(existing_video_ids)} 筆影片紀錄，{len(liked_post_ids)} 筆按讚紀錄。")
     
-    if search_query:
-        target_url = f"https://www.threads.net/search?q={quote(search_query)}"
-        logging.info(f"模式：搜尋關鍵字 \"{search_query}\"")
-    elif target_username:
-        target_url = f"https://www.threads.net/@{target_username}"
-        logging.info(f"模式：指定用戶 @{target_username}")
-    else:
-        target_url = "https://www.threads.net/"
-        logging.info("模式：預設首頁推薦內容")
-
-    logging.info(f"[設定] 按讚門檻: {like_threshold if like_threshold != -1 else '停用'}, 下載門檻: {download_threshold}")
-
     os.makedirs(output_dir, exist_ok=True)
     
     try:
@@ -151,6 +165,18 @@ def main():
     parser.add_argument("-r", "--scroll", type=int, default=3, help="頁面滾動次數")
     parser.add_argument("-o", "--output", type=str, default="downloads", help="影片儲存的資料夾")
     parser.add_argument("-u", "--upload", action='store_true', help="下載完成後，自動執行上傳器")
+    parser.add_argument(
+        '-du', '--deleteupload',
+        type=float,
+        default=0.8,
+        help='(與 --upload 一起使用時) 設定清理閾值 (GB)。'
+    )
+    parser.add_argument(
+        '-n', '--num_videos',
+        type=int,
+        default=None,
+        help='(與 --upload 一起使用時) 指定上傳影片的數量上限。'
+    )
     
     parser.add_argument("-l^", "--like-above", type=int, default=None, help="覆寫設定檔，當讚數 >= N 時按讚")
     parser.add_argument("-d^", "--download-above", type=int, default=None, help="覆寫設定檔，當讚數 >= N 時下載")
@@ -175,15 +201,25 @@ def main():
         like_threshold_override=args.like_above,
         download_threshold_override=args.download_above,
         continuous_mode=args.continuous,
-        log_level=log_level
+        log_level=log_level,
+        do_upload=args.upload,
+        cleanup_threshold=args.deleteupload,
+        num_videos_to_upload=args.num_videos
     )
 
     if args.upload:
-        print("\n--- 所有下載任務已完成，即將啟動上傳器... ---")
+        logging.info("\n--- 所有下載任務已完成，即將啟動上傳器... ---")
         try:
-            subprocess.run(["uv", "run", "python", "uploader.py"], check=True)
+            # 匯入 uploader 模組並直接呼叫其核心任務函式
+            import uploader
+            uploader.run_upload_task(
+                cleanup_threshold_gb=args.deleteupload,
+                num_videos=args.num_videos
+            )
+        except ImportError:
+            logging.error("[錯誤] 無法匯入 uploader.py 模組。")
         except Exception as e:
-            print(f"[錯誤] uploader.py 執行失敗: {e}")
+            logging.error(f"[錯誤] uploader.py 執行失敗: {e}")
 
 if __name__ == "__main__":
     main()

@@ -105,8 +105,10 @@ This is the main entry point for scraping and downloading videos. It can also tr
 | `-s` | `--search` | Scrape based on a search query instead of a user. | `None` |
 | `-r` | `--scroll` | Number of times to scroll down the page for more content. | `3` |
 | `-o` | `--output` | Specify the directory to save downloaded videos. | `downloads` |
-| `-u` | `--upload` | Automatically run the uploader task after downloading is complete. | `False` |
-| `-d` | `--debug` | Enable verbose logging for debugging purposes. | `False` |
+| `-u` | `--upload` | Automatically execute the uploader after download tasks are complete. | `False` |
+| `-du`| `--deleteupload` | (Used with `--upload`) Sets the cleanup threshold (GB). If the `downloads` folder size exceeds this value, already **uploaded** video files will be automatically deleted to free up space. | `0.8` |
+| `-n` | `--num_videos` | (Used with `--upload`) Specifies the maximum number of videos to upload. | Unlimited |
+| `-d` | `--debug` | Enable detailed log output mode for debugging. | `False` |
 | `-v` | `--version`| Show the current version of the program. | - |
 
 #### Examples
@@ -149,7 +151,8 @@ This script checks the database for downloaded videos that have not yet been upl
 
 | Short | Long | Description | Default |
 | :--- | :--- | :--- | :--- |
-| `-du`| `--deleteupload` | Set the cleanup threshold in Gigabytes (GB). If the `downloads` folder size exceeds this value, already uploaded video files will be deleted to free up space. | `0.8` |
+| `-du`| `--deleteupload` | Sets the cleanup threshold (GB). If the `downloads` folder size exceeds this value, already **uploaded** video files will be automatically deleted to free up space. | `0.8` |
+| `-n` | `--num_videos` | Specifies the maximum number of videos to upload in this run. | Unlimited |
 
 #### Examples
 

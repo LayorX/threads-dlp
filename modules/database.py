@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import sqlite3
+import logging
 from datetime import datetime
 
 DB_FILE = "db/threads_dlp.db"
@@ -10,10 +11,17 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+import logging
+
 def init_db():
-    """初始化資料庫和 `videos` 資料表。"""
+    """
+    初始化資料庫，建立 `videos` 和 `liked_posts` 資料表。
+    此函式包含遷移邏輯，可自動為舊版資料庫新增欄位。
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    # 1. 確保 `videos` 資料表存在，並使用最新的欄位結構
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS videos (
         video_id TEXT PRIMARY KEY,
@@ -35,14 +43,34 @@ def init_db():
         youtube_tags TEXT
     )
     ''')
-    
-    # 檢查 liked_posts 資料表是否存在，如果不存在則建立
+
+    # 2. 遷移邏輯：檢查並新增缺失的欄位，以支援舊版資料庫
+    cursor.execute("PRAGMA table_info(videos)")
+    columns = [row['name'] for row in cursor.fetchall()]
+
+    missing_columns = {
+        'upload_timestamp': 'DATETIME',
+        'youtube_title': 'TEXT',
+        'youtube_description': 'TEXT',
+        'youtube_tags': 'TEXT'
+    }
+
+    for col, col_type in missing_columns.items():
+        if col not in columns:
+            logging.info(f"正在更新資料庫結構：新增 '{col}' 欄位...")
+            try:
+                cursor.execute(f"ALTER TABLE videos ADD COLUMN {col} {col_type}")
+            except sqlite3.OperationalError as e:
+                logging.error(f"新增欄位 '{col}' 失敗: {e}")
+
+    # 3. 確保 `liked_posts` 資料表存在
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS liked_posts (
         post_id TEXT PRIMARY KEY,
         like_timestamp DATETIME
     )
     ''')
+    
     conn.commit()
     conn.close()
 

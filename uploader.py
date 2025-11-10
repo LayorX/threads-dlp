@@ -241,7 +241,7 @@ def _ensure_file_from_env(file_path: str, env_var: str):
             logging.critical(message)
             raise FileNotFoundError(message)
 
-def run_upload_task(cleanup_threshold_gb=0.8):
+def run_upload_task(cleanup_threshold_gb=0.8, num_videos=None):
     """上傳影片的核心任務，包含清理邏輯。"""
     
     # --- 磁碟空間清理檢查 ---
@@ -261,6 +261,12 @@ def run_upload_task(cleanup_threshold_gb=0.8):
     if not videos_to_upload:
         logging.info("資料庫中沒有新的影片需要上傳。")
         return
+    
+    # --- 根據 num_videos 參數限制上傳數量 ---
+    if num_videos is not None and num_videos > 0:
+        logging.info(f"根據 --num_videos 參數，本次最多上傳 {num_videos} 部影片。")
+        videos_to_upload = videos_to_upload[:num_videos]
+    
     logging.info(f"發現 {len(videos_to_upload)} 部影片待上傳。")
 
     is_publish_now = config.get("is_publish_now")
@@ -316,10 +322,16 @@ def main():
         default=0.8,
         help='設定清理閾值 (GB)。當 downloads 資料夾大小超過此值時，將刪除已上傳的影片。預設值為 0.8 GB。'
     )
+    parser.add_argument(
+        '-n', '--num_videos',
+        type=int,
+        default=None,
+        help='指定本次上傳影片的數量上限。預設為無限制。'
+    )
     args = parser.parse_args()
 
     init_db()
-    run_upload_task(cleanup_threshold_gb=args.deleteupload)
+    run_upload_task(cleanup_threshold_gb=args.deleteupload, num_videos=args.num_videos)
 
 if __name__ == "__main__":
     main()
