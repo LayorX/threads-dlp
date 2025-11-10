@@ -186,7 +186,10 @@ uv run python view_db.py
 
 ## 🔑 YouTube API 設定 (自動上傳功能)
 
-若要使用自動上傳至 YouTube 的功能 (`--upload`)，您必須先完成 Google API 的授權設定。過程分為兩大步：獲取 `client_secrets.json` 和生成 `request.token`。
+> **重要提醒：**
+> 如果您的 Google Cloud 專案的 OAuth 同意畫面處於「測試」狀態，則生成的 `request.token` 只有 **7 天** 的有效期。若要獲得長期有效的 token，請務必在 Google Cloud Console 中將您的應用程式「**發布**」為正式版。發布後，您需要重新生成一次 `request.token`。
+
+若要使用自動上傳至 YouTube 的功能 (`--upload`)，您必須先完成 Google API 的授權設定。此過程遵循 `youtubeuploader` 的官方指南，分為兩大步：獲取 `client_secrets.json` 和生成 `request.token`。
 
 ### 步驟 1：獲取 `client_secrets.json`
 
@@ -214,8 +217,10 @@ uv run python view_db.py
 5.  **建立憑證 (OAuth 用戶端 ID)**:
     *   在左側導覽列中，點擊「憑證」。
     *   點擊頂部的「+ 建立憑證」，然後選擇「OAuth 用戶端 ID」。
-    *   在「應用程式類型」中，選擇「**電腦版應用程式**」(Desktop app)。
-    *   為其命名，然後點擊「建立」。
+    *   在「應用程式類型」中，選擇「**Web 應用程式**」(Web application)。
+    *   為其命名（例如 `youtubeuploader-creds`）。
+    *   在「已授權的重新導向 URI」部分，點擊「+ 新增 URI」，然後輸入 `http://localhost:8080/oauth2callback`。
+    *   點擊「建立」。
 
 6.  **下載憑證檔案**:
     *   建立成功後，您會在憑證列表中看到剛剛建立的用戶端。
@@ -233,11 +238,16 @@ uv run python view_db.py
         uv run python main.py zuck --upload
         ```
 2.  **完成瀏覽器授權**:
-    *   程式會自動在您的瀏覽器中打開一個 Google 授權頁面。
+    *   程式會自動在您的瀏覽器中打開一個 Google 授權頁面，並在命令列中顯示一個 `localhost` 開頭的網址。
+    *   **複製該網址**，並在瀏覽器中打開。
     *   登入您在「測試使用者」步驟中設定的那個 Google 帳號。
     *   同意授權請求。
-3.  **生成 Token**:
-    *   授權成功後，`uploader` 會自動在專案根目錄下生成一個名為 `request.token` 的檔案。
+    *   授權成功後，頁面會重新導向到一個無法顯示的 `localhost` 頁面，這是正常的。**請將這個重新導向後的網址完整複製下來**。
+3.  **貼上授權碼**:
+    *   回到您的命令列，程式會提示您貼上剛剛複製的網址。
+    *   貼上網址並按下 Enter。
+4.  **生成 Token**:
+    *   驗證成功後，`uploader` 會自動在專案根目錄下生成一個名為 `request.token` 的檔案。
 
 完成以上步驟後，您的專案就擁有了完整的自動上傳權限。`client_secrets.json` 和 `request.token` 都應被視為機密檔案，切勿將它們提交到公開的 Git 倉庫中（專案的 `.gitignore` 已預設忽略它們）。
 

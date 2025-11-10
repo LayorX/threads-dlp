@@ -184,7 +184,10 @@ uv run python view_db.py
 
 ## 🔑 YouTube API Setup (for Auto-Upload Feature)
 
-To use the automatic YouTube upload feature (`--upload`), you must first complete the Google API authorization setup. This process involves two main steps: obtaining `client_secrets.json` and generating `request.token`.
+> **Important Note:**
+> If your Google Cloud project's OAuth consent screen is in "Testing" status, the generated `request.token` will only be valid for **7 days**. To obtain a long-term valid token, you must "**Publish**" your application to production status in the Google Cloud Console. After publishing, you will need to regenerate `request.token` once.
+
+To use the automatic YouTube upload feature (`--upload`), you must first complete the Google API authorization setup, following the official guide for `youtubeuploader`. This process involves two main steps: obtaining `client_secrets.json` and generating `request.token`.
 
 ### Step 1: Obtain `client_secrets.json`
 
@@ -212,8 +215,10 @@ This file acts as the "key" for your application, letting Google know it's your 
 5.  **Create Credentials (OAuth Client ID)**:
     *   In the left navigation panel, click on "Credentials".
     *   Click "+ CREATE CREDENTIALS" at the top and select "OAuth client ID".
-    *   For "Application type", choose "**Desktop app**".
-    *   Give it a name and click "Create".
+    *   For "Application type", choose "**Web application**".
+    *   Give it a name (e.g., `youtubeuploader-creds`).
+    *   Under the "Authorized redirect URIs" section, click "+ ADD URI" and enter `http://localhost:8080/oauth2callback`.
+    *   Click "Create".
 
 6.  **Download the Credential File**:
     *   After creation, you will see the new client ID in your credentials list.
@@ -231,11 +236,16 @@ This file is the "pass" that grants your application permission to act on behalf
         uv run python main.py zuck --upload
         ```
 2.  **Complete the Browser Authorization**:
-    *   The program will automatically open a Google authorization page in your browser.
+    *   The program will print a URL starting with `localhost` in your terminal and wait.
+    *   **Copy this URL** and paste it into your browser.
     *   Log in with the same Google account you added as a "Test user".
     *   Grant the requested permissions.
-3.  **Token Generation**:
-    *   Upon successful authorization, the uploader will automatically generate a file named `request.token` in your project's root directory.
+    *   After authorization, the page will redirect to a `localhost` URL that cannot be reached. This is expected. **Copy this entire redirected URL from your browser's address bar**.
+3.  **Paste the Authorization Code**:
+    *   Return to your terminal. The program will be prompting you to paste the URL.
+    *   Paste the URL you just copied and press Enter.
+4.  **Token Generation**:
+    *   Upon successful validation, the uploader will automatically generate a file named `request.token` in your project's root directory.
 
 After completing these steps, your project will have full permission to upload videos automatically. Both `client_secrets.json` and `request.token` should be treated as confidential files and should never be committed to a public Git repository (the project's `.gitignore` already ignores them by default).
 
