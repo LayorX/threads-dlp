@@ -78,7 +78,7 @@ def main():
 
     # --- 設定排程任務 ---
     # 每 4 小時執行一次下載任務
-    schedule.every(1).hours.do(download_job)
+    schedule.every(4).hours.do(download_job)
     logging.info("下載任務已排程，每 4 小時執行一次。")
     
     # 每日在指定時間 (UTC) 執行上傳檢查

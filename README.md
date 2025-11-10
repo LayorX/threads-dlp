@@ -93,37 +93,95 @@
 
 ## 📖 本地端使用方法
 
-確保你已經啟用了虛擬環境 (`.venv\Scripts\activate`)。
+確保你已經啟用了虛擬環境 (`.venv\Scripts\activate`)。本專案主要包含兩個可執行的腳本：`main.py` (主程式/下載器) 和 `uploader.py` (獨立上傳器)。
 
-**模式一：下載指定用戶的影片**
+### `main.py` (主程式/下載器)
+
+這是最主要的進入點，負責執行爬取和下載任務，並可選擇在下載完成後觸發上傳。
+
+#### 參數說明
+
+| 短格式 | 長格式 | 功能說明 | 預設值 |
+| :--- | :--- | :--- | :--- |
+| `-t` | `--target` | 指定要爬取的 Threads 用戶名稱。 | `None` (若未指定，則爬取首頁) |
+| `-s` | `--search` | 根據關鍵字進行搜尋並爬取結果。 | `None` |
+| `-r` | `--scroll` | 模擬頁面向下滾動的次數，數字越大爬取越深。 | `3` |
+| `-o` | `--output` | 指定儲存下載影片的資料夾路徑。 | `downloads` |
+| `-u` | `--upload` | 在下載任務完成後，自動執行上傳任務。 | `False` |
+| `-d` | `--debug` | 啟用詳細日誌輸出模式，方便偵錯。 | `False` |
+| `-v` | `--version` | 顯示目前的程式版本號。 | - |
+
+#### 使用範例
+
+**1. 下載指定用戶的影片 (基本)**
 ```bash
-# 只下載
-uv run python main.py zuck
-
-# 下載後自動上傳
-uv run python main.py zuck --upload
+# 下載用戶 'zuck' 的影片，使用預設滾動次數 (3次)
+uv run python main.py -t zuck
 ```
 
-**模式二：下載搜尋關鍵字的影片**
+**2. 下載並指定儲存位置與爬取深度**
 ```bash
-uv run python main.py --search "你想搜尋的關鍵字" --upload
+# 下載用戶 'zuck' 的影片，滾動 10 次，並將影片儲存到 'zuck_videos' 資料夾
+uv run python main.py -t zuck -r 10 -o zuck_videos
 ```
 
-**模式三：下載首頁推薦的影片**
+**3. 根據關鍵字搜尋並下載**
 ```bash
-uv run python main.py --upload
+# 搜尋 "cats" 並下載相關影片
+uv run python main.py -s "cats"
 ```
 
-**模式四：僅執行上傳**
-單獨執行上傳器，上傳資料庫中已下載但尚未發布的影片。
+**4. 下載首頁推薦的影片**
 ```bash
+# 不帶 -t 或 -s 參數，直接執行即可
+uv run python main.py
+```
+
+**5. 下載後自動觸發上傳**
+```bash
+# 下載用戶 'zuck' 的影片，並在結束後立即開始上傳
+uv run python main.py -t zuck -u
+```
+
+### `uploader.py` (獨立上傳器)
+
+這個腳本負責檢查資料庫中哪些影片尚未上傳，並將它們發布到 YouTube。它也可以獨立執行，處理之前已下載但未上傳的影片。
+
+#### 參數說明
+
+| 短格式 | 長格式 | 功能說明 | 預設值 |
+| :--- | :--- | :--- | :--- |
+| `-du`| `--deleteupload` | 設定清理閾值 (GB)。當 `downloads` 資料夾大小超過此值，將自動刪除**已上傳**的影片檔案以釋放空間。 | `0.8` |
+
+#### 使用範例
+
+**1. 獨立執行上傳 (使用預設清理閾值)**
+```bash
+# 檢查資料庫，上傳待處理的影片。
+# 在上傳前會檢查 'downloads' 資料夾大小，若超過 0.8 GB 則會清理已上傳的檔案。
 uv run python uploader.py
 ```
 
-**模式五：查看資料庫**
-啟動 Datasette 網頁介面，在 `http://127.0.0.1:8001/` 查看資料庫內容。
+**2. 上傳時自訂清理閾值**
 ```bash
-uv run datasette threads_dlp.db
+# 將清理閾值設為 1.5 GB。
+# 當資料夾大小超過 1.5 GB 時，才會觸發清理。
+uv run python uploader.py -du 1.5
+```
+
+**3. 在下載+上傳流程中自訂清理閾值**
+```bash
+# 下載 'zuck' 的影片，然後觸發上傳。
+# 在上傳階段，使用 0.5 GB 作為清理閾值。
+uv run python main.py -t zuck --upload --deleteupload 0.5
+```
+
+### `view_db.py` (資料庫查看器)
+
+一個簡單的工具，用於在命令列中快速查看資料庫內容。
+
+```bash
+uv run python view_db.py
 ```
 
 ---

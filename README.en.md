@@ -91,37 +91,95 @@ This approach guarantees seamless use of the upload feature, whether you are dev
 
 ## 📖 Local Usage
 
-Make sure you have activated the virtual environment (`.venv\Scripts\activate`).
+Make sure you have activated the virtual environment (`.venv\Scripts\activate` on Windows). The project consists of two main executable scripts: `main.py` (the primary downloader) and `uploader.py` (the standalone uploader).
 
-**Mode 1: Download Videos from a Specific User**
+### `main.py` (Downloader)
+
+This is the main entry point for scraping and downloading videos. It can also trigger the upload process upon completion.
+
+#### Arguments
+
+| Short | Long | Description | Default |
+| :--- | :--- | :--- | :--- |
+| `-t` | `--target` | Specify the Threads username to scrape. | `None` (scrapes the home feed if omitted) |
+| `-s` | `--search` | Scrape based on a search query instead of a user. | `None` |
+| `-r` | `--scroll` | Number of times to scroll down the page for more content. | `3` |
+| `-o` | `--output` | Specify the directory to save downloaded videos. | `downloads` |
+| `-u` | `--upload` | Automatically run the uploader task after downloading is complete. | `False` |
+| `-d` | `--debug` | Enable verbose logging for debugging purposes. | `False` |
+| `-v` | `--version`| Show the current version of the program. | - |
+
+#### Examples
+
+**1. Download Videos from a Specific User (Basic)**
 ```bash
-# Download only
-uv run python main.py zuck
-
-# Download and then auto-upload
-uv run python main.py zuck --upload
+# Download videos from user 'zuck' with the default scroll count (3)
+uv run python main.py -t zuck
 ```
 
-**Mode 2: Download Videos from a Keyword Search**
+**2. Specify Output Directory and Scrape Depth**
 ```bash
-uv run python main.py --search "your_keyword_here" --upload
+# Download from 'zuck', scroll 10 times, and save videos to the 'zuck_videos' folder
+uv run python main.py -t zuck -r 10 -o zuck_videos
 ```
 
-**Mode 3: Download Videos from Your Home Feed**
+**3. Search and Download by Keyword**
 ```bash
-uv run python main.py --upload
+# Search for "cats" and download the resulting videos
+uv run python main.py -s "cats"
 ```
 
-**Mode 4: Run Uploader Only**
-Execute the uploader independently to upload videos that are in the database but not yet published.
+**4. Download from Your Home Feed**
 ```bash
+# Simply run the script without -t or -s
+uv run python main.py
+```
+
+**5. Download and Automatically Trigger Upload**
+```bash
+# Download videos from 'zuck' and start the upload process immediately after
+uv run python main.py -t zuck -u
+```
+
+### `uploader.py` (Standalone Uploader)
+
+This script checks the database for downloaded videos that have not yet been uploaded and publishes them to YouTube. It can be run independently to process a backlog of videos.
+
+#### Arguments
+
+| Short | Long | Description | Default |
+| :--- | :--- | :--- | :--- |
+| `-du`| `--deleteupload` | Set the cleanup threshold in Gigabytes (GB). If the `downloads` folder size exceeds this value, already uploaded video files will be deleted to free up space. | `0.8` |
+
+#### Examples
+
+**1. Run the Uploader with Default Cleanup Threshold**
+```bash
+# Check the database and upload pending videos.
+# Before uploading, it checks if the 'downloads' folder exceeds 0.8 GB and cleans up if necessary.
 uv run python uploader.py
 ```
 
-**Mode 5: View the Database**
-Start the Datasette web interface to view the database content at `http://127.0.0.1:8001/`.
+**2. Run the Uploader with a Custom Cleanup Threshold**
 ```bash
-uv run datasette threads_dlp.db
+# Set the cleanup threshold to 1.5 GB.
+# Cleanup will only be triggered if the folder size is over 1.5 GB.
+uv run python uploader.py -du 1.5
+```
+
+**3. Use Custom Cleanup Threshold in a Download-Upload Workflow**
+```bash
+# Download from 'zuck', then trigger the uploader.
+# During the upload phase, use a 0.5 GB cleanup threshold.
+uv run python main.py -t zuck --upload --deleteupload 0.5
+```
+
+### `view_db.py` (Database Viewer)
+
+A simple utility to quickly view the database content in your terminal.
+
+```bash
+uv run python view_db.py
 ```
 
 ---
