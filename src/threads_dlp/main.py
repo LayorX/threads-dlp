@@ -9,22 +9,25 @@ import json
 from collections import defaultdict
 from urllib.parse import quote
 import sys
+from importlib import resources
 
-from modules.downloader import download_video
-from modules.scraper import scrape_videos
-from modules.database import init_db, get_all_existing_video_ids, add_video_entry, get_all_liked_post_ids
+# [修正] 改為相對匯入
+from .downloader import download_video
+from .scraper import scrape_videos
+from .database import init_db, get_all_existing_video_ids, add_video_entry, get_all_liked_post_ids
+from . import uploader
 
 __version__ = "1.0.0"
 
 def load_language_strings(language='zh-TW') -> dict:
-    """從 languages.json 載入指定語言的字串。"""
+    """從套件內部安全地載入指定語言的字串。"""
     try:
-        with open("languages.json", 'r', encoding='utf-8') as f:
-            all_strings = json.load(f)
-            # 返回 main 模組專用的字串，如果不存在則返回空字典
-            return all_strings.get(language, {}).get('main', {})
-    except (FileNotFoundError, json.JSONDecodeError):
-        logging.error("語言檔案 languages.json 遺失或格式錯誤，將使用預設的繁體中文。")
+        # 使用 importlib.resources 讀取套件內的資料檔案
+        file_content = resources.read_text('threads_dlp', 'languages.json')
+        all_strings = json.loads(file_content)
+        return all_strings.get(language, {}).get('main', {})
+    except (FileNotFoundError, json.JSONDecodeError, ModuleNotFoundError):
+        logging.error("語言檔案 languages.json 遺失、格式錯誤或無法從套件載入，將使用預設的繁體中文。")
         return {}
 
 def sanitize_filename(filename: str) -> str:
@@ -33,7 +36,7 @@ def sanitize_filename(filename: str) -> str:
     sanitized = re.sub(r'[\r\n]', ' ', sanitized)
     sanitized = "".join(c for c in sanitized if c.isprintable())
     sanitized = re.sub(r'\s+', ' ', sanitized).strip()
-    return sanitized[:180] # 限制檔名長度以避免系統問題
+    return sanitized[:180]
 
 def load_config() -> dict:
     """載入設定檔，並為新功能提供預設值。"""
@@ -63,12 +66,10 @@ def run_download_task(
 ):
     """
     核心下載任務邏輯。
-    此函式被設計為可由外部腳本匯入和呼叫。
     """
     lang_strings = load_language_strings(language)
 
     logging.basicConfig(level=log_level, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-    # 特別將吵雜的函式庫的日誌等級也設定為 WARNING
     if log_level != logging.DEBUG :
         logging.getLogger('seleniumwire').setLevel(logging.WARNING)
         logging.getLogger('webdriver_manager').setLevel(logging.WARNING)
@@ -77,7 +78,6 @@ def run_download_task(
     like_threshold = like_threshold_override if like_threshold_override is not None else config['like_threshold']
     download_threshold = download_threshold_override if download_threshold_override is not None else config['download_threshold']
 
-    # --- 啟動時顯示所有重要參數 ---
     logging.info(lang_strings.get('task_start', "==================== 任務啟動 ===================="))
     logging.info( f"→→→ Version: {__version__} ←←←")
     if search_query:
@@ -99,7 +99,6 @@ def run_download_task(
         logging.info(lang_strings.get('cleanup_threshold', "   [上傳設定] 清理閾值: {threshold} GB").format(threshold=cleanup_threshold))
         logging.info(lang_strings.get('upload_limit', "   [上傳設定] 本次上傳數量上限: {limit}").format(limit=num_videos_to_upload if num_videos_to_upload is not None else lang_strings.get('unlimited', '無限制')))
     logging.info(lang_strings.get('task_end', "=================================================="))
-
 
     existing_video_ids = get_all_existing_video_ids()
     liked_post_ids = get_all_liked_post_ids()
@@ -166,13 +165,12 @@ def run_download_task(
                     new_videos_downloaded += 1
                 except Exception as e:
                     logging.critical(lang_strings.get('db_write_failed', "寫入資料庫失敗: {error}，中止執行。").format(error=e))
-                    # 事務性操作：如果資料庫寫入失敗，則刪除已下載的檔案
                     logging.warning(f"由於資料庫寫入失敗，正在刪除已下載的檔案: {full_path}")
                     try:
                         os.remove(full_path)
                     except OSError as remove_error:
                         logging.error(f"刪除檔案 {full_path} 失敗: {remove_error}")
-                    return # 中止執行以避免進一步錯誤
+                    return
             else:
                 logging.error(lang_strings.get('download_failed', "影片 {video_id} 下載失敗，跳過紀錄。").format(video_id=video_id))
 
@@ -180,6 +178,7 @@ def run_download_task(
 
 def main():
     """主函式，負責處理命令列參數並呼叫核心下載任務。"""
+    # [修正] 將所有邏輯移入 main 函式
     parser = argparse.ArgumentParser(description="Download videos from Threads, with optional smart liking and filtering.")
     
     parser.add_argument("-l", "--language", type=str, default="zh-TW", choices=['zh-TW', 'en'], help="Set the language for log output.")
@@ -214,15 +213,12 @@ def main():
 
     lang_strings = load_language_strings(args.language)
 
-    # --- 參數使用檢查 ---
     if (args.num_videos is not None or args.deleteupload != 0.8) and not args.upload:
         logging.critical(lang_strings.get('upload_param_warning', "錯誤：參數 '-n' 或 '-du' 必須與 '-u' (自動上傳) 參數一起使用。請修正您的指令。"))
-        sys.exit(1) # 直接退出程式
+        sys.exit(1)
 
-    # 在執行任何任務前，先初始化資料庫
     init_db()
 
-    # 執行核心下載任務
     run_download_task(
         target_username=args.target,
         search_query=args.search,
@@ -241,15 +237,11 @@ def main():
     if args.upload:
         logging.info(lang_strings.get('starting_uploader', "\n--- 所有下載任務已完成，即將啟動上傳器... ---"))
         try:
-            # 匯入 uploader 模組並直接呼叫其核心任務函式
-            import uploader
             uploader.run_upload_task(
                 cleanup_threshold_gb=args.deleteupload,
                 num_videos=args.num_videos,
                 language=args.language
             )
-        except ImportError:
-            logging.error(lang_strings.get('uploader_import_error', "[錯誤] 無法匯入 uploader.py 模組。"))
         except Exception as e:
             logging.error(lang_strings.get('uploader_exec_failed', "[錯誤] uploader.py 執行失敗: {error}").format(error=e))
 

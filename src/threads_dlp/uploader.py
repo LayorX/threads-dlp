@@ -8,21 +8,18 @@ import logging
 import sys
 import argparse
 from dotenv import load_dotenv
+from importlib import resources
 
-from modules.database import init_db, get_all_videos_to_upload, update_upload_status, get_all_uploaded_videos
+from .database import init_db, get_all_videos_to_upload, update_upload_status, get_all_uploaded_videos
 
 def load_language_strings(language='zh-TW') -> dict:
-    """從 languages.json 載入指定語言的字串。"""
+    """從套件內部安全地載入指定語言的字串。"""
     try:
-        # 調整路徑以適應模組導入
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        lang_file_path = os.path.join(base_dir, 'languages.json')
-        with open(lang_file_path, 'r', encoding='utf-8') as f:
-            all_strings = json.load(f)
-            # 返回 uploader 模組專用的字串，如果不存在則返回空字典
-            return all_strings.get(language, {}).get('uploader', {})
-    except (FileNotFoundError, json.JSONDecodeError):
-        logging.error("語言檔案 languages.json 遺失或格式錯誤。")
+        file_content = resources.read_text('threads_dlp', 'languages.json')
+        all_strings = json.loads(file_content)
+        return all_strings.get(language, {}).get('uploader', {})
+    except (FileNotFoundError, json.JSONDecodeError, ModuleNotFoundError):
+        logging.error("語言檔案 languages.json 遺失、格式錯誤或無法從套件載入。")
         return {}
 
 def setup_logging():

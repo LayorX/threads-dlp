@@ -1451,9 +1451,9 @@ wheels = [
 ]
 
 [[package]]
-name = "theads2yt"
-version = "0.1.0"
-source = { virtual = "." }
+name = "threads-dlp-layorx"
+version = "1.0.3"
+source = { editable = "." }
 dependencies = [
     { name = "blinker" },
     { name = "datasette" },
