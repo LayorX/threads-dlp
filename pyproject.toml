@@ -1,9 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
-name = "theads2yt"
-version = "0.1.0"
-description = "Add your description here"
+name = "threads-dlp-layorx"
+version = "1.0.3"
+authors = [
+  { name="LayorX", email="your@email.com" },
+]
+description = "A tool to download videos from Threads user pages."
 readme = "README.md"
 requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "requests>=2.32.5",
     "selenium>=4.37.0",
@@ -21,3 +33,9 @@ dependencies = [
     "datasette-auth-passwords>=1.1.1",
     "honcho>=2.0.0",
 ]
+
+[project.scripts]
+threads-dlp = "threads_dlp.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/threads_dlp"]

@@ -9,23 +9,20 @@ from seleniumwire import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
+from importlib import resources
 
 # 匯入新功能所需的模組
-from modules.threads_client import like_post, get_like_tokens
-from modules.database import add_liked_post
+from .threads_client import like_post, get_like_tokens
+from .database import add_liked_post
 
 def load_language_strings(language='zh-TW') -> dict:
-    """從 languages.json 載入指定語言的字串。"""
+    """從套件內部安全地載入指定語言的字串。"""
     try:
-        # 調整路徑以適應模組導入
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        lang_file_path = os.path.join(base_dir, 'languages.json')
-        with open(lang_file_path, 'r', encoding='utf-8') as f:
-            all_strings = json.load(f)
-            # 返回 scraper 模組專用的字串，如果不存在則返回空字典
-            return all_strings.get(language, {}).get('scraper', {})
-    except (FileNotFoundError, json.JSONDecodeError):
-        logging.error("語言檔案 languages.json 遺失或格式錯誤。")
+        file_content = resources.read_text('threads_dlp', 'languages.json')
+        all_strings = json.loads(file_content)
+        return all_strings.get(language, {}).get('scraper', {})
+    except (FileNotFoundError, json.JSONDecodeError, ModuleNotFoundError):
+        logging.error("語言檔案 languages.json 遺失、格式錯誤或無法從套件載入。")
         return {}
 
 def safe_get(data, keys, default=None):

@@ -3,7 +3,7 @@ import sqlite3
 import logging
 from datetime import datetime
 
-DB_FILE = "db/threads_dlp.db"
+DB_FILE = "threads_dlp.db"
 
 def get_db_connection():
     """建立並返回一個資料庫連接，並設定為 row_factory 以便將結果作為字典存取。"""
