@@ -14,7 +14,7 @@ from modules.downloader import download_video
 from modules.scraper import scrape_videos
 from modules.database import init_db, get_all_existing_video_ids, add_video_entry, get_all_liked_post_ids
 
-__version__ = "1.0.0"
+__version__ = "1.0.3"
 
 def load_language_strings(language='zh-TW') -> dict:
     """從 languages.json 載入指定語言的字串。"""
