@@ -56,6 +56,26 @@
       "scraping_error": "爬取過程中發生錯誤: {error}",
       "session_end": "爬取會話結束，瀏覽器將由上下文管理器自動關閉。",
       "total_videos_scraped": "\n本次運行共篩選出 {count} 個符合條件的影片。"
+    },
+    "uploader": {
+      "folder_size_check": "'{folder}' 資料夾目前大小: {size:.2f} GB。清理閾值為: {threshold} GB。",
+      "cleanup_triggered": "資料夾大小已超過閾值。觸發已上傳檔案的清理程序...",
+      "cleanup_not_needed": "資料夾大小在限制範圍內，無需清理。",
+      "no_videos_to_upload": "資料庫中沒有新的影片需要上傳。",
+      "upload_limit_info": "根據 --num_videos 參數，本次最多上傳 {count} 部影片。",
+      "videos_found": "發現 {count} 部影片待上傳。",
+      "video_file_not_found": "跳過影片 ID {video_id}，因為檔案不存在: {path}",
+      "processing_video": "--- 正在處理第 {current}/{total} 部影片: {filename} ---",
+      "metadata_gen_failed": "因元數據生成失敗，跳過影片 '{video_id}'。",
+      "db_update_failed": "致命錯誤: 更新影片 {video_id} 的資料庫狀態失敗: {error}",
+      "upload_failed": "影片 '{video_id}' 上傳失敗。中止本次上傳任務。",
+      "upload_task_complete": "所有上傳任務已完成。",
+      "cleanup_start": "開始清理已上傳的檔案...",
+      "cleanup_no_files": "資料庫中沒有已上傳的影片可供清理。",
+      "cleanup_deleted_video": "已刪除已上傳的影片: {path}",
+      "cleanup_deleted_meta": "已刪除對應的元數據檔案: {path}",
+      "cleanup_delete_error": "刪除檔案 {path} 時發生錯誤: {error}",
+      "cleanup_done": "清理完畢。共刪除了 {count} 個影片檔案。"
     }
   },
   "en": {
@@ -115,6 +135,26 @@
       "scraping_error": "An error occurred during scraping: {error}",
       "session_end": "Scraping session ended, browser will be closed automatically by the context manager.",
       "total_videos_scraped": "\nA total of {count} videos matching the criteria were filtered in this run."
+    },
+    "uploader": {
+        "folder_size_check": "Folder '{folder}' current size: {size:.2f} GB. Cleanup threshold: {threshold} GB.",
+        "cleanup_triggered": "Folder size exceeds threshold. Triggering cleanup of uploaded files...",
+        "cleanup_not_needed": "Folder size is within limits, no cleanup needed.",
+        "no_videos_to_upload": "No new videos to upload in the database.",
+        "upload_limit_info": "Based on the --num_videos parameter, uploading a maximum of {count} videos this run.",
+        "videos_found": "Found {count} videos to upload.",
+        "video_file_not_found": "Skipping video ID {video_id} because the file does not exist: {path}",
+        "processing_video": "--- Processing video {current}/{total}: {filename} ---",
+        "metadata_gen_failed": "Skipping video '{video_id}' due to metadata generation failure.",
+        "db_update_failed": "CRITICAL ERROR: Failed to update database status for video {video_id}: {error}",
+        "upload_failed": "Upload failed for video '{video_id}'. Aborting this upload task.",
+        "upload_task_complete": "All upload tasks are complete.",
+        "cleanup_start": "Starting cleanup of uploaded files...",
+        "cleanup_no_files": "No uploaded videos found in the database to clean up.",
+        "cleanup_deleted_video": "Deleted uploaded video: {path}",
+        "cleanup_deleted_meta": "Deleted corresponding metadata file: {path}",
+        "cleanup_delete_error": "Error deleting file {path}: {error}",
+        "cleanup_done": "Cleanup finished. Deleted {count} video files in total."
     }
   }
 }

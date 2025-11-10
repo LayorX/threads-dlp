@@ -233,7 +233,8 @@ def main():
             import uploader
             uploader.run_upload_task(
                 cleanup_threshold_gb=args.deleteupload,
-                num_videos=args.num_videos
+                num_videos=args.num_videos,
+                language=args.language
             )
         except ImportError:
             logging.error(lang_strings.get('uploader_import_error', "[錯誤] 無法匯入 uploader.py 模組。"))
