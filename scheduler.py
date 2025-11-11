@@ -60,7 +60,7 @@ def upload_job():
         
         if video_count >= upload_threshold:
             logging.info(f"影片數量 ({video_count}) 已達到門檻 (>= {upload_threshold})，開始執行上傳程序。")
-            run_upload_task()
+            run_upload_task(cleanup_threshold_gb=0.2)
         else:
             logging.info("影片數量未達到門檻，本次跳過上傳。")
     except Exception as e:
@@ -78,7 +78,7 @@ def main():
 
     # --- 設定排程任務 ---
     # 每 6 小時執行一次下載任務
-    schedule.every(6).hours.do(download_job)
+    schedule.every(8).hours.do(download_job)
     logging.info("下載任務已排程，每 4 小時執行一次。")
     
     # 每日在指定時間 (UTC) 執行上傳檢查
