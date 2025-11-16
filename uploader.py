@@ -11,6 +11,10 @@ from dotenv import load_dotenv
 
 from modules.database import init_db, get_all_videos_to_upload, update_upload_status, get_all_uploaded_videos, delete_video_record
 
+class YouTubeQuotaExceededError(Exception):
+    """自訂異常，用於表示 YouTube API 上傳配額已用盡。"""
+    pass
+
 def load_language_strings(language='zh-TW') -> dict:
     """從 languages.json 載入指定語言的字串。"""
     try:
@@ -225,6 +229,13 @@ def upload_video(video_path: str, meta_path: str, config: dict):
         logging.debug(f"Uploader output: {process.stdout}")
         return True
     except subprocess.CalledProcessError as e:
+        error_output = e.stderr + e.stdout # 檢查標準錯誤和標準輸出
+        quota_exceeded_message = "Error 400: The user has exceeded the number of videos they may upload."
+        
+        if quota_exceeded_message in error_output:
+            logging.critical(f"YouTube API 配額已用盡，無法上傳更多影片。錯誤訊息: {error_output}")
+            raise YouTubeQuotaExceededError(quota_exceeded_message)
+        
         logging.error(f"上傳 '{video_path}' 失敗。Uploader 執行出錯。")
         logging.error(f"Return code: {e.returncode}")
         logging.error(f"STDOUT: {e.stdout}")
@@ -318,18 +329,23 @@ def run_upload_task(cleanup_threshold_gb=0.8, num_videos=None, language='zh-TW')
         with open(meta_path, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=4)
         
-        if upload_video(video_path, meta_path, config):
-            try:
-                # 從元數據中獲取標題以存入資料庫
-                youtube_title = metadata.get('title', '')
-                update_upload_status(video_id, status=True, title=youtube_title)
-            except Exception as e:
-                logging.critical(lang_strings.get('db_update_failed', "致命錯誤: 更新影片 {video_id} 的資料庫狀態失敗: {error}").format(video_id=video_id, error=e))
-                break # 資料庫更新失敗是嚴重問題，應中止
-        else:
-            # 上傳失敗，記錄錯誤並繼續處理下一部影片
-            logging.error(lang_strings.get('upload_failed_continue', "影片 '{video_id}' 上傳失敗。將繼續處理下一部影片。").format(video_id=video_id))
-            continue
+        try:
+            if upload_video(video_path, meta_path, config):
+                try:
+                    # 從元數據中獲取標題以存入資料庫
+                    youtube_title = metadata.get('title', '')
+                    update_upload_status(video_id, status=True, title=youtube_title)
+                except Exception as e:
+                    logging.critical(lang_strings.get('db_update_failed', "致命錯誤: 更新影片 {video_id} 的資料庫狀態失敗: {error}").format(video_id=video_id, error=e))
+                    break # 資料庫更新失敗是嚴重問題，應中止
+            else:
+                # 上傳失敗，記錄錯誤並繼續處理下一部影片
+                logging.error(lang_strings.get('upload_failed_continue', "影片 '{video_id}' 上傳失敗。將繼續處理下一部影片。").format(video_id=video_id))
+                continue
+        except YouTubeQuotaExceededError:
+            # 捕捉到配額超限錯誤，中止整個上傳任務
+            logging.critical(lang_strings.get('youtube_quota_exceeded', "YouTube API 上傳配額已用盡。中止本次所有上傳任務。"))
+            break
         time.sleep(5)
     logging.info(lang_strings.get('upload_task_complete', "所有上傳任務已完成。"))
 
