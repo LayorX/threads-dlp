@@ -182,6 +182,20 @@ def update_upload_status(video_id, status, title=""):
     conn.commit()
     conn.close()
 
+def delete_video_record(video_id):
+    """根據 video_id 從資料庫中刪除指定的影片紀錄。"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        logging.info(f"正在從資料庫中刪除影片紀錄: {video_id}")
+        cursor.execute("DELETE FROM videos WHERE video_id = ?", (video_id,))
+        conn.commit()
+        logging.info(f"成功刪除紀錄: {video_id}")
+    except sqlite3.Error as e:
+        logging.error(f"刪除影片紀錄 {video_id} 時發生資料庫錯誤: {e}")
+    finally:
+        conn.close()
+
 def add_liked_post(post_id):
     """新增一筆按讚貼文的紀錄。"""
     conn = get_db_connection()

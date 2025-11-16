@@ -9,7 +9,7 @@ import sys
 import argparse
 from dotenv import load_dotenv
 
-from modules.database import init_db, get_all_videos_to_upload, update_upload_status, get_all_uploaded_videos
+from modules.database import init_db, get_all_videos_to_upload, update_upload_status, get_all_uploaded_videos, delete_video_record
 
 def load_language_strings(language='zh-TW') -> dict:
     """從 languages.json 載入指定語言的字串。"""
@@ -294,8 +294,11 @@ def run_upload_task(cleanup_threshold_gb=0.8, num_videos=None, language='zh-TW')
     for i, video_data in enumerate(videos_to_upload):
         video_id = video_data['video_id']
         video_path = video_data['local_path']
+        
+        # 檢查檔案是否存在，如果不存在則刪除紀錄並跳過
         if not os.path.exists(video_path):
-            logging.warning(lang_strings.get('video_file_not_found', "跳過影片 ID {video_id}，因為檔案不存在: {path}").format(video_id=video_id, path=video_path))
+            logging.warning(lang_strings.get('video_file_not_found_delete', "影片檔案不存在於: {path}。將從資料庫中刪除此紀錄。").format(path=video_path))
+            delete_video_record(video_id)
             continue
         
         logging.info(lang_strings.get('processing_video', "--- 正在處理第 {current}/{total} 部影片: {filename} ---").format(current=i+1, total=len(videos_to_upload), filename=os.path.basename(video_path)))
@@ -322,10 +325,11 @@ def run_upload_task(cleanup_threshold_gb=0.8, num_videos=None, language='zh-TW')
                 update_upload_status(video_id, status=True, title=youtube_title)
             except Exception as e:
                 logging.critical(lang_strings.get('db_update_failed', "致命錯誤: 更新影片 {video_id} 的資料庫狀態失敗: {error}").format(video_id=video_id, error=e))
-                break 
+                break # 資料庫更新失敗是嚴重問題，應中止
         else:
-            logging.error(lang_strings.get('upload_failed', "影片 '{video_id}' 上傳失敗。中止本次上傳任務。").format(video_id=video_id))
-            break
+            # 上傳失敗，記錄錯誤並繼續處理下一部影片
+            logging.error(lang_strings.get('upload_failed_continue', "影片 '{video_id}' 上傳失敗。將繼續處理下一部影片。").format(video_id=video_id))
+            continue
         time.sleep(5)
     logging.info(lang_strings.get('upload_task_complete', "所有上傳任務已完成。"))
 
