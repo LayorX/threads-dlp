@@ -44,7 +44,7 @@ def load_config() -> dict:
         config = {}
     
     config.setdefault('like_threshold', -1)
-    config.setdefault('download_threshold', 1000)
+    config.setdefault('download_threshold', 3000)
     return config
 
 def run_download_task(
